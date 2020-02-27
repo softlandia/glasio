@@ -1,0 +1,24 @@
+**file: data\more_20_warnings.las**
+**file: data\w2_more_20_warnings.txt **
+0, line: -1,	desc: invalid STEP parameter, equal 0. replace to 1.000
+1, line: -1,	desc: invalid STRT: 0.000 or STOP: 0.000, will be replace to actually
+2, line: 24,	desc: can't convert string: '6.2.2' to number, set to NULL
+3, line: 25,	desc: not all column readed, set log value to NULL
+4, line: 25,	desc: not all column readed, set log value to NULL
+5, line: 26,	desc: actual number of data lines more than expected, check: STRT, STOP, STEP
+6, line: 26,	desc: expand number of points
+7, line: 26,	desc: line: 26 is empty, ignore
+8, line: 27,	desc: can't convert string: '6.2.2' to number, set to NULL
+9, line: 28,	desc: line: 28 is empty, ignore
+10, line: 29,	desc: can't convert string: '5.97.' to number, set to NULL
+11, line: 30,	desc: actual number of data lines more than expected, check: STRT, STOP, STEP
+12, line: 30,	desc: expand number of points
+13, line: 30,	desc: line: 30 is empty, ignore
+14, line: 31,	desc: can't convert string: '6.47.' to number, set to NULL
+15, line: 32,	desc: line: 32 is empty, ignore
+16, line: 33,	desc: step 64.00 ≠ previously step  1.00
+17, line: 33,	desc: can't convert string: '5.97.' to number, set to NULL
+18, line: 34,	desc: line: 34 is empty, ignore
+19, line: 35,	desc: step 47.00 ≠ previously step 64.00
+20, line: 0,	desc: *maximum count* of warning reached, change parameter 'maxWarningCount' in 'glas.ini'
+
