@@ -1,4 +1,4 @@
-//(c) softland 2019
+//(c) softland 2020
 //softlandia@gmail.com
 package glasio
 
