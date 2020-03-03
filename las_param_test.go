@@ -4,10 +4,42 @@
 package glasio
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
+
+type tReadWellParamStep struct {
+	s string
+	v float64
+}
+
+var dReadWellParamStep = []tReadWellParamStep{
+	{"STEP.M            0.10 : dept step", 0.1},   //0
+	{"STEP.M\t0.10                      ", 0.1},   //1
+	{"STEP .M           0.10 : dept step", 0.1},   //2
+	{"STEP . M          0.10 : dept step", 0.1},   //3
+	{"STEP M  \t  \t  10.0 \t: dept step", 10},    //4
+	{"STEP              10 :   dept step", 10},    //5 нет ед.изм.
+	{"STEP.\t10          : dept  \t step", 10},    //6 нет ед.изм.
+	{" STEP   . M       10.0 : dept step", 10},    //7
+	{" STEP . M   \t  10.0   : dept step", 10},    //8
+	{"\t STEP   M        10 : dept step ", 10},    //9
+	{"STEP \t  M       10 :  dept step  ", 10},    //10
+	{"STEP \t  M  \t\t 10 :  dept step  ", 10},    //11
+	{"STEP.m              :   dept step ", 00},    //12 нет значения но есть ед.изм.
+	{"STEP           0.113:    dept step", 0.113}, //13 нет ед.изм.
+	{"STEP.\t0.999       : dept  \t step", 0.999}, //14 нет ед.изм.
+}
+
+func TestReadWellParam(t *testing.T) {
+	las := NewLas()
+	for i, tmp := range dReadWellParamStep {
+		las.ReadWellParam(tmp.s)
+		assert.Equal(t, las.Step, tmp.v, fmt.Sprintf("<ReadWellParam> on test %d return STEP: '%f' expect: '%f'\n", i, las.Step, tmp.v))
+	}
+}
 
 type tParseParamStr struct {
 	s  string

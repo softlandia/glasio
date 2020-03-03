@@ -3,6 +3,7 @@ package glasio
 import (
 	"bufio"
 	"errors"
+	"fmt"
 	"os"
 
 	"github.com/softlandia/cpd"
@@ -32,4 +33,41 @@ func LoadLasHeader(fileName string) (*Las, error) {
 	}
 	las.LoadHeader()
 	return las, nil
+}
+
+// считывает файл и собирает все сообщения в один объект
+func lasOpenCheck(filename string) LasLog {
+
+	las := NewLas() // TODO make special constructor to initialize with global Mnemonic and Dic
+	//las.LogDic = &Mnemonic // global var
+	//las.VocDic = &Dic      // global var
+
+	LasLog := NewLasLog(las)
+
+	LasLog.readedNumPoints, LasLog.errorOnOpen = las.Open(filename)
+	LasLog.msgOpen = las.Warnings
+
+	if las.IsWraped() {
+		LasLog.msgCheck = append(LasLog.msgCheck, LasLog.msgCheck.msgFileIsWraped(filename))
+		//return statLasCheck_WRAP
+	}
+	if las.NumPoints() == 0 {
+		LasLog.msgCheck = append(LasLog.msgCheck, LasLog.msgCheck.msgFileNoData(filename))
+		//return statLasCheck_DATA
+	}
+	if LasLog.errorOnOpen != nil {
+		LasLog.msgCheck = append(LasLog.msgCheck, LasLog.msgCheck.msgFileOpenWarning(filename, LasLog.errorOnOpen))
+	}
+
+	for k, v := range las.Logs {
+		if len(v.Mnemonic) == 0 { //v.Mnemonic содержит автоопределённую стандартную мнемонику, если она пустая, значит пропущена, помечаем **
+			LasLog.msgCurve = append(LasLog.msgCurve, fmt.Sprintf("*input log: %s \t internal: %s \t mnemonic:%s*\n", v.IName, k, v.Mnemonic))
+			LasLog.missMnemonic[v.IName] = v.IName
+		} else {
+			LasLog.msgCurve = append(LasLog.msgCurve, fmt.Sprintf("input log: %s \t internal: %s \t mnemonic: %s\n", v.IName, k, v.Mnemonic))
+		}
+	}
+
+	las = nil
+	return LasLog
 }

@@ -14,37 +14,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type tReadWellParamStep struct {
-	s string
-	v float64
-}
-
-var dReadWellParamStep = []tReadWellParamStep{
-	{"STEP.M            0.10 : dept step", 0.1},   //0
-	{"STEP.M\t0.10                      ", 0.1},   //1
-	{"STEP .M           0.10 : dept step", 0.1},   //2
-	{"STEP . M          0.10 : dept step", 0.1},   //3
-	{"STEP M  \t  \t  10.0 \t: dept step", 10},    //4
-	{"STEP              10 :   dept step", 10},    //5 нет ед.изм.
-	{"STEP.\t10          : dept  \t step", 10},    //6 нет ед.изм.
-	{" STEP   . M       10.0 : dept step", 10},    //7
-	{" STEP . M   \t  10.0   : dept step", 10},    //8
-	{"\t STEP   M        10 : dept step ", 10},    //9
-	{"STEP \t  M       10 :  dept step  ", 10},    //10
-	{"STEP \t  M  \t\t 10 :  dept step  ", 10},    //11
-	{"STEP.m              :   dept step ", 00},    //12 нет значения но есть ед.изм.
-	{"STEP           0.113:    dept step", 0.113}, //13 нет ед.изм.
-	{"STEP.\t0.999       : dept  \t step", 0.999}, //14 нет ед.изм.
-}
-
-func TestReadWellParam(t *testing.T) {
-	las := NewLas()
-	for i, tmp := range dReadWellParamStep {
-		las.ReadWellParam(tmp.s)
-		assert.Equal(t, las.Step, tmp.v, fmt.Sprintf("<ReadWellParam> on test %d return STEP: '%f' expect: '%f'\n", i, las.Step, tmp.v))
-	}
-}
-
 func TestGetMnemonic(t *testing.T) {
 	Mnemonic, err := LoadStdMnemonicDic(fp.Join("data/mnemonic.ini"))
 	assert.Nil(t, err, fmt.Sprintf("load std mnemonic error: %v\n check out 'data\\mnemonic.ini'", err))
@@ -54,7 +23,7 @@ func TestGetMnemonic(t *testing.T) {
 
 	las := NewLas()
 	mnemonic := las.GetMnemonic("1")
-	assert.Equal(t, mnemonic, "-", fmt.Sprintf("<GetMnemonic> return '%s', expected '-'\n", mnemonic))
+	assert.Equal(t, mnemonic, "", fmt.Sprintf("<GetMnemonic> return '%s', expected ''\n", mnemonic))
 
 	las.LogDic = &Mnemonic
 	las.VocDic = &VocDic
@@ -77,10 +46,24 @@ func TestReachingMaxAmountWarnings(t *testing.T) {
 	las = NewLas()
 	las.maxWarningCount = 100
 	las.Open(fp.Join("data/more_20_warnings.las"))
-	if las.Warnings.Count() != 62 {
+	if las.Warnings.Count() != 41 {
 		las.SaveWarning(fp.Join("data/more_20_warnings.wrn"))
-		assert.Equal(t, las.Warnings.Count(), 62, fmt.Sprintf("<TestReachingMaxAmountWarnings> on read file data\\more_20_warnings.las warning count: %d expected 62\n", las.Warnings.Count()))
+		assert.Equal(t, 41, las.Warnings.Count(), fmt.Sprintf("<TestReachingMaxAmountWarnings> on read file data\\more_20_warnings.las warning count: %d expected 62\n", las.Warnings.Count()))
 	}
+}
+
+func TestLasOpenSpeсial(t *testing.T) {
+	las := NewLas()
+	n, err := las.Open("")
+	assert.Equal(t, 0, n)
+	assert.NotNil(t, err, fmt.Sprintf("<TestLasOpenSpeсial> expect error not nil, got '%v'\n", err))
+	assert.Equal(t, "open : The system cannot find the file specified.", err.Error())
+
+	n, err = las.Open(fp.Join("data/utf-32be-bom.las"))
+	//this decode not support, return error
+	assert.Equal(t, 0, n)
+	assert.NotNil(t, err, fmt.Sprintf("<TestLasOpenSpeсial> expect error not nil, got '%v'\n", err))
+	assert.Equal(t, "cpd: codepage not support encode/decode", err.Error())
 }
 
 /*

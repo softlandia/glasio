@@ -19,5 +19,25 @@
 17, line: 35,	desc: can't convert string: '5.47.' to number, set to NULL
 18, line: 37,	desc: step  1.00 ≠ previously step 47.00
 19, line: 37,	desc: can't convert string: '4.7.' to number, set to NULL
-20, line: 0,	desc: *maximum count* of warning reached, change parameter 'maxWarningCount' in 'glas.ini'
+20, line: 38,	desc: actual number of data lines more than expected, check: STRT, STOP, STEP
+21, line: 38,	desc: expand number of points
+22, line: 38,	desc: can't convert string: '4.7.' to number, set to NULL
+23, line: 40,	desc: line: 40 is empty, ignore
+24, line: 41,	desc: actual step -117.20 ≠ global STEP  1.00
+25, line: 41,	desc: step -117.20 ≠ previously step  1.00
+26, line: 41,	desc: not all column readed, set log value to NULL
+27, line: 42,	desc: actual step 170.20 ≠ global STEP  1.00
+28, line: 42,	desc: step 170.20 ≠ previously step -117.20
+29, line: 43,	desc: step  1.00 ≠ previously step 170.20
+30, line: 45,	desc: actual step  4.00 ≠ global STEP  1.00
+31, line: 45,	desc: step  4.00 ≠ previously step  1.00
+32, line: 46,	desc: step  1.00 ≠ previously step  4.00
+33, line: 49,	desc: actual number of data lines more than expected, check: STRT, STOP, STEP
+34, line: 49,	desc: expand number of points
+35, line: 49,	desc: actual step  3.00 ≠ global STEP  1.00
+36, line: 49,	desc: step  3.00 ≠ previously step  1.00
+37, line: 50,	desc: step  1.00 ≠ previously step  3.00
+38, line: 54,	desc: actual step  0.00 ≠ global STEP  1.00
+39, line: 54,	desc: step  0.00 ≠ previously step  1.00
+40, line: 55,	desc: actual step  0.00 ≠ global STEP  1.00
 

@@ -311,10 +311,12 @@ func (o *Las) addWarning(w TWarning) {
 	}
 }
 
-// GetMnemonic - return Mnemonic from dictionary by Log Name, if Mnemonic not found return empty string ""
+// GetMnemonic - return Mnemonic from dictionary by Log Name,
+// if Mnemonic not found return ""
+// if Dictionary is nil, then return ""
 func (o *Las) GetMnemonic(logName string) string {
 	if (o.LogDic == nil) || (o.VocDic == nil) {
-		return "-"
+		return "" //"-"
 	}
 	_, ok := (*o.LogDic)[logName]
 	if ok { //GOOD - название каротажа равно мнемонике
@@ -337,7 +339,7 @@ func (o *Las) Open(fileName string) (int, error) {
 	}
 	defer o.File.Close()
 	o.FileName = fileName
-	//store Reader, this reader decode to UTF-8
+	//create and store Reader, this reader decode to UTF-8
 	o.Reader, err = cpd.NewReader(o.File)
 	if err != nil {
 		return 0, err
@@ -354,11 +356,11 @@ func (o *Las) Open(fileName string) (int, error) {
 
 	if o.IsWraped() {
 		o.addWarning(TWarning{directOnRead, lasSecData, -1, "WRAP = YES, file ignored"})
-		return 0, nil
+		return 0, nil //TODO здесь должна быть ошибка, мы не добрались до чтения данных
 	}
 	if len(o.Logs) <= 0 {
 		o.addWarning(TWarning{directOnRead, lasSecData, -1, "section ~Curve not exist, file ignored"})
-		return 0, nil
+		return 0, nil //TODO здесь должна быть ошибка, мы не добрались до чтения данных
 	}
 	return o.ReadDataSec(fileName)
 }
@@ -473,7 +475,7 @@ func (o *Las) ChangeDuplicateLogName(name string) string {
 //Каждый каротаж характеризуется тремя именами
 //IName    - имя каротажа в исходном файле, может повторятся
 //Name     - ключ в map хранилище, повторятся не может. если в исходном есть повторение, то Name строится добавлением к IName индекса
-//Mnemonic - мнемоника, берётся из словаря. если в словаре не найдено, то оставляем iName
+//Mnemonic - мнемоника, берётся из словаря, если в словаре не найдено, то ""
 func (o *Las) readCurveParam(s string) error {
 	l := NewLasCurveFromString(s)
 	l.Init(len(o.Logs), o.GetMnemonic(l.Name), o.ChangeDuplicateLogName(l.Name), o.GetExpectedPointsCount())
