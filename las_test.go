@@ -107,7 +107,7 @@ type tLoadHeader struct {
 var dLoadHeader = []tLoadHeader{
 	{fp.Join("data/2.0/cp1251_2.0_based.las"), 2.0, "NO", 0.0, 39.9, 0.3, -999.25, "Примерная-1/бис(ё)"},
 	{fp.Join("data/expand_points_01.las"), 1.2, "NO", 1.0, 1.0, 0.1, -9999.00, "12-Сплошная"},
-	{fp.Join("data/more_20_warnings.las"), 1.2, "NO", 0.0, 0.0, 1.0, -32768.0, "6"}, //in las file STEP=0.0 but this incorrect, LoadHeader replace STEP to actual from data
+	{fp.Join("data/more_20_warnings.las"), 1.2, "NO", 0.0, 0.0, 0.0, -32768.0, "6"}, //in las file STEP=0.0 but this incorrect, LoadHeader replace STEP to actual from data
 	{fp.Join("data/expand_points_01.las"), 1.2, "NO", 1.0, 1.0, 0.1, -9999.0, "12-Сплошная"},
 	{fp.Join("data/1.2/sample.las"), 1.2, "NO", 1670.0, 1660.0, -0.1250, -999.2500, "ANY ET AL OIL WELL #12"},
 	{fp.Join("data/2.0/sample_2.0.las"), 2.0, "NO", 1670.0, 1660.0, -0.1250, -999.2500, "AAAAA_2"},
@@ -119,7 +119,7 @@ func TestLoadHeader(t *testing.T) {
 	var las *Las
 	for _, tmp := range dLoadHeader {
 		las = NewLas()
-		las.iCodepage, _ = cpd.FileCodepageDetect(tmp.fn)
+		//las.iCodepage, _ = cpd.FileCodepageDetect(tmp.fn)
 		f, _ := os.Open(tmp.fn)
 		las.Reader, _ = cpd.NewReader(f)
 		las.FileName = tmp.fn
@@ -129,7 +129,7 @@ func TestLoadHeader(t *testing.T) {
 		assert.Equal(t, las.Wrap, tmp.wrap, fmt.Sprintf("<LoadHeader> file '%s' readed WRAP: %s, expected %s", las.FileName, las.Wrap, tmp.wrap))
 		assert.Equal(t, las.Strt, tmp.strt, fmt.Sprintf("<LoadHeader> file '%s' readed STRT: %f, expected %f", las.FileName, las.Strt, tmp.strt))
 		assert.Equal(t, las.Stop, tmp.stop, fmt.Sprintf("<LoadHeader> file '%s' readed STOP: %f, expected %f", las.FileName, las.Stop, tmp.stop))
-		assert.Equal(t, las.Step, tmp.step, fmt.Sprintf("<LoadHeader> file '%s' readed STEP: %f, expected %f", las.FileName, las.Step, tmp.step))
+		assert.Equal(t, tmp.step, las.Step, fmt.Sprintf("<LoadHeader> file '%s' readed STEP: %f, expected %f", las.FileName, las.Step, tmp.step))
 		assert.Equal(t, las.Null, tmp.null, fmt.Sprintf("<LoadHeader> file '%s' readed NULL: %f, expected %f", las.FileName, las.Null, tmp.null))
 		assert.Equal(t, las.Well, tmp.well, fmt.Sprintf("<LoadHeader> file '%s' readed WELL: %s, expected %s", las.FileName, las.Well, tmp.well))
 	}

@@ -24,9 +24,14 @@ func PrepareParamStr(s string) string {
 	return strings.TrimSpace(s)
 }
 
-//ParseParamStr - parse string from las file
-//return slice with 4 string and error if occure
-//before process input string 2 or more space replace on 1 space
+// ParseParamStr - parse string from las file
+// return slice with 4 string and error if occure
+// before process input string 2 or more space replace on 1 space
+// sample "NULL .		               -9999.00 : Null value"
+// f[0] - name
+// f[1] - unit
+// f[2] - value
+// f[3] - description
 func ParseParamStr(s string) (f [4]string) {
 	f[0] = ""
 	f[1] = ""
@@ -59,8 +64,13 @@ func ParseParamStr(s string) (f [4]string) {
 	return
 }
 
-//ParseCurveStr - parse input string to 3 separated string
-//" пс повт . мВ  : 7 кр сам"
+// ParseCurveStr - parse input string to 3 separated string
+// " пс повт . мВ      : 7 кр сам"
+//   ^^^^^^^   ^^        ^^^^^^^^
+//   name      unit      description
+// f[2] - description
+// f[1] - unit
+// f[0] - name
 func ParseCurveStr(s string) (f [3]string) {
 	f[0] = ""
 	f[1] = ""
@@ -77,7 +87,7 @@ func ParseCurveStr(s string) (f [3]string) {
 	//now s contains only name and unit
 
 	iDot := strings.Index(s, ".")
-	//TODO если в строке нет точки, то отделить имя от единицы измерения невозможно. имя может содержать произвольные символя включая пробел
+	//TODO если в строке нет точки, то отделить имя от единицы измерения невозможно. имя может содержать произвольные символы включая пробел
 	if iDot < 0 { //if dot not found, all string is Curve name
 		f[0] = strings.TrimSpace(s)
 		return

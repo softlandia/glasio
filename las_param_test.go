@@ -72,6 +72,7 @@ var dParseParamStr = []tParseParamStr{
 	{"VERS.             1.20: cp_866  ", "VERS.1.20:cp_866", "VERS", "1.20", "", "cp_866"},                //18
 	{"NULL.   -999.250   :NULL VALUE", "NULL.-999.250:NULL VALUE", "NULL", "-999.250", "", "NULL VALUE"},  //19
 	{"VERS.      2.0 :[Softland]", "VERS.2.0:[Softland]", "VERS", "2.0", "", "[Softland]"},                //20
+	//{"WELL. Примерная 101/\"бис\" :well", "WELL.Примерная 101/\"бис\":well", "WELL", "Примерная 101/\"бис\"", "", "well"}, //21
 }
 
 func TestPrepareParamStr(t *testing.T) {

@@ -1,5 +1,5 @@
 **file: data\more_20_warnings.las**
-0, line: -1,	desc: invalid STEP parameter, equal 0. replace to 1.000
+0, line: -1,	desc: STEP parameter equal 0, replace to 1.000
 1, line: -1,	desc: invalid STRT: 0.000 or STOP: 0.000, will be replace to actually
 2, line: 24,	desc: can't convert string: '6.2.2' to number, set to NULL
 3, line: 25,	desc: not all column readed, set log value to NULL

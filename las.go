@@ -151,18 +151,6 @@ func (o *Las) SetNull(aNull float64) error {
 	return nil
 }
 
-/*
-//вызывать после Scanner.Text()
-func (o *Las) convertStrFromIn(s string) string {
-	switch o.iCodepage {
-	case cpd.CP866:
-		s, _, _ = transform.String(charmap.CodePage866.NewDecoder(), s)
-	case cpd.CP1251:
-		s, _, _ = transform.String(charmap.Windows1251.NewDecoder(), s)
-	}
-	return s
-}*/
-
 //TODO replace to function xStrUtil.ConvertStrCodePage
 func (o *Las) convertStrToOut(s string) string {
 	switch o.oCodepage {
@@ -186,11 +174,12 @@ func (o *Las) logByIndex(i int) (*LasCurve, error) {
 
 //NewLas - make new object Las class
 //autodetect code page at load file
-//code page to save by default is xlib.CpWindows1251
+//code page to save by default is cpd.CP1251
 func NewLas(outputCP ...cpd.IDCodePage) *Las {
 	las := new(Las)
 	las.Ver = 2.0
 	las.Wrap = "NO"
+	las.expPoints = 1000
 	las.Logs = make(map[string]LasCurve)
 	las.maxWarningCount = 20 //TODO read from Cfg
 	las.stdNull = -999.25    //TODO read from Cfg
@@ -238,17 +227,18 @@ func (o *Las) selectSection(r rune) int {
 
 //make test of loaded well info section
 //return error <> nil in one case, if getStepFromData return error
-func (o *Las) testWellInfo() error {
+func (o *Las) checkWellInfoSection() error {
 	if o.Step == 0.0 {
+		//TODO менять здесь шаг нельзя, здесь только проверка и сохранение извещения о некорректности, менять надо потом
 		o.Step = o.GetStepFromData(o.FileName) // return o.Null if cannot calculate step from data
 		if o.Step == o.Null {
-			return errors.New("invalid STEP parameter, equal 0. and invalid step in data")
+			return errors.New("invalid STEP parameter and invalid step in data")
 		}
-		o.addWarning(TWarning{directOnRead, lasSecWellInfo, -1, fmt.Sprintf("invalid STEP parameter, equal 0. replace to %4.3f", o.Step)})
+		o.addWarning(TWarning{directOnRead, lasSecWellInfo, -1, fmt.Sprintf("STEP parameter equal 0, replace to %4.3f", o.Step)})
 	}
 	if o.Null == 0.0 {
 		o.Null = o.stdNull
-		o.addWarning(TWarning{directOnRead, lasSecWellInfo, -1, fmt.Sprintf("invalid NULL parameter, equal 0. replace to %4.3f", o.Null)})
+		o.addWarning(TWarning{directOnRead, lasSecWellInfo, -1, fmt.Sprintf("NULL parameter equal 0, replace to %4.3f", o.Null)})
 	}
 	if math.Abs(o.Stop-o.Strt) < 0.1 {
 		o.addWarning(TWarning{directOnRead, lasSecWellInfo, -1, fmt.Sprintf("invalid STRT: %4.3f or STOP: %4.3f, will be replace to actually", o.Strt, o.Stop)})
@@ -345,13 +335,15 @@ func (o *Las) Open(fileName string) (int, error) {
 		return 0, err
 	}
 	o.scanner = bufio.NewScanner(o.Reader)
-	/*o.iCodepage, err = cpd.FileCodepageDetect(fileName)*/
 
 	//load header from stored Reader
 	o.currentLine = 0
-	err = o.LoadHeader()
+	o.LoadHeader()
+	//проверка корректности данных секции WELL INFO перез загрузкой данных
+	//непоправимая ошибка если невозможно определить корректно шаг
+	err = o.checkWellInfoSection()
 	if err != nil {
-		return 0, err
+		return 0, err // двойная ошибка, плох параметр STEP и не удалось вычислить STEP по данным, с данными проблема...
 	}
 
 	if o.IsWraped() {
@@ -384,14 +376,6 @@ func (o *Las) LoadHeader() error {
 		}
 		if s[0] == '~' { //start new section
 			secNum = o.selectSection(rune(s[1]))
-			if secNum == lasSecCurInfo { //enter to Curve section.
-				//проверка корректности данных секции WELL INFO перез загрузкой кривых и данных
-				//TODO проверку нужно перенести в функцию Open() здесь вообще не место
-				err = o.testWellInfo() //STEP != 0, NULL != 0, STRT & STOP
-				if err != nil {
-					return err // двойная ошибка, плох параметр STEP и не удалось вычислить STEP по данным, с данными проблема...
-				}
-			}
 			if secNum == lasSecData {
 				break // dAta section read after //exit from for
 			}
@@ -486,6 +470,10 @@ func (o *Las) readCurveParam(s string) error {
 //GetExpectedPointsCount - оценка количества точек по параметрам STEP, STRT, STOP
 func (o *Las) GetExpectedPointsCount() int {
 	var m int
+	//TODO нужно обработать все случаи
+	if o.Step == 0.0 {
+		return o.expPoints
+	}
 	if math.Abs(o.Stop) > math.Abs(o.Strt) {
 		m = int((o.Stop-o.Strt)/o.Step) + 2
 	} else {
@@ -535,7 +523,6 @@ func (o *Las) expandDept(d *LasCurve) {
 }
 
 // ReadDataSec - read section of data
-// TODO file open and not close
 func (o *Las) ReadDataSec(fileName string) (int, error) {
 	var (
 		v    float64
@@ -545,22 +532,6 @@ func (o *Las) ReadDataSec(fileName string) (int, error) {
 		dept float64
 		i    int
 	)
-
-	/*
-		   //обнаруживаем начало секции данных, позиционируемся на строку перед данными
-		   	pos, iScanner, err := xlib.SeekFileStop(fileName, "~A")
-
-		   	//now current position in file at line "~A..."
-		   	o.currentLine = pos
-
-		switch pos {
-		case 0:
-			return 0, err
-		case -1:
-			return 0, fmt.Errorf("<ReadDataSec> data section '~A' not found")
-		}
-	*/
-	//iScanner := o.scanner
 
 	//исходя из параметров STRT, STOP и STEP определяем ожидаемое количество строк данных
 	o.expPoints = o.GetExpectedPointsCount()
