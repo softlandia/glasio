@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math"
 	"os"
 	"path/filepath"
@@ -14,8 +15,6 @@ import (
 	"github.com/softlandia/cpd"
 
 	"github.com/softlandia/xlib"
-	"golang.org/x/text/encoding/charmap"
-	"golang.org/x/text/transform"
 )
 
 ///format strings represent structure of LAS file
@@ -98,7 +97,7 @@ type Las struct {
 //read 2 line from section ~A and determine step
 //close file
 //return o.Null if error occure
-//TODO просто сделать функцией
+//если делать функцией, не методом, то придётся NULL передавать. а оно надо вообще
 func (o *Las) GetStepFromData(fileName string) float64 {
 	iFile, err := os.Open(fileName)
 	if err != nil {
@@ -151,15 +150,19 @@ func (o *Las) SetNull(aNull float64) error {
 	return nil
 }
 
-//TODO replace to function xStrUtil.ConvertStrCodePage
 func (o *Las) convertStrToOut(s string) string {
-	switch o.oCodepage {
-	case cpd.CP866:
-		s, _, _ = transform.String(charmap.CodePage866.NewEncoder(), s)
-	case cpd.CP1251:
-		s, _, _ = transform.String(charmap.Windows1251.NewEncoder(), s)
-	}
-	return s
+	r, _ := cpd.NewReaderTo(strings.NewReader(s), o.oCodepage.String())
+	b, _ := ioutil.ReadAll(r)
+	return string(b)
+	/*
+		switch o.oCodepage {
+		case cpd.CP866:
+			s, _, _ = transform.String(charmap.CodePage866.NewEncoder(), s)
+		case cpd.CP1251:
+			s, _, _ = transform.String(charmap.Windows1251.NewEncoder(), s)
+		}
+		return s
+	*/
 }
 
 //logByIndex - return log from map by Index
@@ -357,8 +360,8 @@ func (o *Las) Open(fileName string) (int, error) {
 	return o.ReadDataSec(fileName)
 }
 
-//LoadHeader - read las file and load all section before dAta ~A
-/*  secName: 0 - empty, 1 - Version, 2 - Well info, 3 - Curve info, 4 - A data
+/*LoadHeader - read las file and load all section before ~A
+   secName: 0 - empty, 1 - Version, 2 - Well info, 3 - Curve info, 4 - A data
 1. читаем строку
 2. если коммент или пустая в игнор
 3. если начало секции, определяем какой
@@ -389,7 +392,7 @@ func (o *Las) LoadHeader() error {
 	return nil
 }
 
-//ReadParameter - read one parameter
+// ReadParameter - read one parameter
 func (o *Las) ReadParameter(s string, secNum int) error {
 	switch secNum {
 	case lasSecVertion:
@@ -491,11 +494,8 @@ func (o *Las) expandDept(d *LasCurve) {
 	o.addWarning(TWarning{directOnRead, lasSecData, o.currentLine, "actual number of data lines more than expected, check: STRT, STOP, STEP"})
 	o.addWarning(TWarning{directOnRead, lasSecData, o.currentLine, "expand number of points"})
 	//ожидаем удвоения данных
-
 	o.expPoints *= 2
-	//need expand all logs
-	//fmt.Printf("old dept len: %d, cap: %d\n", len(d.dept), cap(d.dept))
-
+	//expand first log - dept
 	newDept := make([]float64, o.expPoints, o.expPoints)
 	copy(newDept, d.dept)
 	d.dept = newDept
@@ -505,7 +505,6 @@ func (o *Las) expandDept(d *LasCurve) {
 	d.log = newLog
 	o.Logs[d.Name] = *d
 
-	//fmt.Printf("new dept len: %d, cap: %d\n", len(d.dept), cap(d.dept))
 	//loop over other logs
 	n := len(o.Logs)
 	var l *LasCurve
