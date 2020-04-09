@@ -26,7 +26,7 @@ func NewLasLog(las *Las) LasLog {
 	lasLog.msgOpen = nil
 	lasLog.msgCheck = make(tCheckMsg, 0, 10)
 	lasLog.msgCurve = make(tCurvRprt, 0, 10)
-	lasLog.missMnemonic = make(tMMnemonic, 0)
+	lasLog.missMnemonic = make(tMMnemonic)
 	return lasLog
 }
 

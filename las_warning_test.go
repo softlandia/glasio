@@ -25,11 +25,11 @@ func TestLasWarningsToString(t *testing.T) {
 		TWarning{2, 2, 2, "second"},
 	}
 	s := warnings.ToString("#")
-	if s != "1;1;\"first\"#2;2;\"second\"#" {
+	if s != "1,1,\"first\"#2,2,\"second\"#" {
 		t.Errorf("<TLasWarnings.ToString> not correct return: %s\n", s)
 	}
 	s = warnings.ToString("\n")
-	if s != "1;1;\"first\"\n2;2;\"second\"\n" {
+	if s != "1,1,\"first\"\n2,2,\"second\"\n" {
 		t.Errorf("<TLasWarnings.ToString> not correct return: %s\n", s)
 	}
 }

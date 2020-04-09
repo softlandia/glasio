@@ -16,6 +16,53 @@ func isIgnoredLine(s string) bool {
 	return false
 }
 
+func cmpLas(correct, las *Las) (res bool) {
+	res = (correct.Strt == las.Strt)
+	res = res && (correct.Stop == las.Stop)
+	res = res && (correct.Step == las.Step)
+	res = res && (correct.Null == las.Null)
+	res = res && (correct.nPoints == las.nPoints)
+	res = res && correct.Logs.Cmp(las.Logs)
+	res = res && (len(correct.Logs) == len(las.Logs))
+	return res
+}
+
+// подразумевается считывание из совершенно корректного файла
+// ошибок при заполнении нет, ничего не проверяем
+func makeLasFromFile(fn string) *Las {
+	las := NewLas()
+	las.Open(fn)
+	return las
+}
+
+func makeSampleLas(
+	cp cpd.IDCodePage,
+	null float64,
+	strt float64,
+	stop float64,
+	step float64,
+	well string) (las *Las) {
+	if cp == cpd.CP1251 {
+		las = NewLas()
+	} else {
+		las = NewLas(cp)
+	}
+	las.Null = null
+	las.Strt = strt
+	las.Stop = stop
+	las.Step = step
+	las.Well = well
+
+	curve := NewLasCurve("DEPT.m :")
+	curve.Init(len(las.Logs), "DEPT", "DEPT", las.GetExpectedPointsCount())
+	las.Logs["DEPT"] = curve
+	curve = NewLasCurve("BK.ohmm :laterolog")
+	curve.Init(len(las.Logs), "BK", "LL3", las.GetExpectedPointsCount())
+	las.Logs["BK"] = curve
+	las.setActuallyNumberPoints(5)
+	return las
+}
+
 // LoadLasHeader - utility function, if need read only header without data
 func LoadLasHeader(fileName string) (*Las, error) {
 	las := NewLas()

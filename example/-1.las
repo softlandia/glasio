@@ -1,7 +1,6 @@
 ~VERSION INFORMATION
 VERS.                          1.2 :glas (c) softlandia@gmail.com
 WRAP.                          NO  : ONE LINE PER DEPTH STEP
-CPAGE.                         1251: code page 
 ~WELL INFORMATION
  STRT.M    1.000                                    :START DEPTH
  STOP.M    1.000                                    :STOP  DEPTH

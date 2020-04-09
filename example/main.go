@@ -29,7 +29,7 @@ func test2() {
 	las.Stop = 10.01
 	las.Step = 0.01
 	las.Well = "Примерная-101/бис"
-	curve := glasio.NewLasCurveFromString("SP.mV :spontaniously")
+	curve := glasio.NewLasCurve("SP.mV :spontaniously")
 	las.Logs["SP"] = curve
 	curve.Init(0, "SP", "SP", 5)
 	err := las.Save("empty.las")

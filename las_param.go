@@ -1,6 +1,8 @@
 package glasio
 
 import (
+	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/softlandia/xlib"
@@ -64,6 +66,8 @@ func ParseParamStr(s string) (f [4]string) {
 	return
 }
 
+const defCurveName = "-EL-" // curve name for null input
+
 // ParseCurveStr - parse input string to 3 separated string
 // " пс повт . мВ      : 7 кр сам"
 //   ^^^^^^^   ^^        ^^^^^^^^
@@ -85,24 +89,26 @@ func ParseCurveStr(s string) (f [3]string) {
 	}
 	//if comma not found, string not change
 	//now s contains only name and unit
-
 	iDot := strings.Index(s, ".")
-	//TODO если в строке нет точки, то отделить имя от единицы измерения невозможно. имя может содержать произвольные символы включая пробел
 	if iDot < 0 { //if dot not found, all string is Curve name
 		f[0] = strings.TrimSpace(s)
 		return
 	}
 	f[0] = strings.TrimSpace(s[:iDot])
+	if len(f[0]) == 0 {
+		// case empty curve name
+		f[0] = defCurveName
+	}
 
-	s = strings.TrimSpace(s[iDot+1:])
-	f[1], _ = xlib.StrCopyStop(s, ' ', ':')
-	f[1] = strings.TrimSpace(f[1])
+	/*	s = strings.TrimSpace(s[iDot+1:])
+		f[1], _ = xlib.StrCopyStop(s, ' ', ':') */
+	f[1] = strings.TrimSpace(s[iDot+1:])
 	return
 }
 
-//NewLasParamFromString - create new object LasParam
+//NewLasParam - create new object LasParam
 //fill fields from s
-func NewLasParamFromString(s string) *LasParam {
+func NewLasParam(s string) *LasParam {
 	par := new(LasParam)
 	paramFields := ParseParamStr(s)
 	par.Name = paramFields[0]
@@ -116,6 +122,23 @@ func NewLasParamFromString(s string) *LasParam {
 	return par
 }
 
+//NULL .   -9999.00        : Null value
+//WELL .   1 - Вообщевская :
+// по умолчанию строка параметра разбирается на 4 составляющие: "имя параметра, ед измерения, значение, коментарий"
+// между точкой и двоеточием ожидается единица измерения и значение параметра
+// для параметра WELL пробел после точки также разбивает строку на две: ед измерения и значение
+// но ТОЛЬКО для этого параметра единица измерения не существет и делать этого не следует
+// таким образом собираем обратно в одно значение то, что ВОЗМОЖНО разбилось
+func wellNameFromParam(p *LasParam) string {
+	if len(p.Unit) == 0 {
+		return p.Val
+	}
+	if len(p.Val) == 0 {
+		return p.Unit
+	}
+	return p.Unit + " " + p.Val
+}
+
 //LasCurve - class to store one log in Las
 type LasCurve struct {
 	LasParam
@@ -124,21 +147,30 @@ type LasCurve struct {
 	log   []float64
 }
 
+// Cmp - compare current curve with another
+// не сравниваются хранящиеся числовые данные (сам каротаж), только описание кривой, также не сравнивается индекс
+// for deep comparison with all data points stored in the container use DeepCmp
+func (o *LasCurve) Cmp(curve LasCurve) (res bool) {
+	res = (o.LasParam == curve.LasParam)
+	return
+}
+
 //SetLen - crop logs to actually len
 //new len must be > 0 and < exist length
 func (o *LasCurve) SetLen(n int) {
 	if (n <= 0) || n >= len(o.dept) {
 		return
 	}
-	t := make([]float64, n, n)
+	t := make([]float64, n)
 	copy(t, o.dept)
 	o.dept = t
-	t = make([]float64, n, n)
+	t = make([]float64, n)
 	copy(t, o.log)
 	o.log = t
 }
 
-//Init - initialize LasCurve, set index, name, mnemonic, make slice for store data
+// Init - initialize LasCurve, set index, name, mnemonic, make slice for store data
+// перенести в NewLasCurve нельзя, в Init передаются обработанные данные кривой (словари, дублирование и т.д.)
 func (o *LasCurve) Init(index int, mnemonic, name string, size int) {
 	o.Index = index
 	o.Mnemonic = mnemonic
@@ -147,8 +179,8 @@ func (o *LasCurve) Init(index int, mnemonic, name string, size int) {
 	o.log = make([]float64, size)
 }
 
-//NewLasCurveFromString - create new object LasCurve
-func NewLasCurveFromString(s string) LasCurve {
+//NewLasCurve - create new object LasCurve
+func NewLasCurve(s string) LasCurve {
 	lc := LasCurve{}
 	curveFields := ParseCurveStr(s)
 	lc.Name = curveFields[0]
@@ -157,4 +189,47 @@ func NewLasCurveFromString(s string) LasCurve {
 	lc.Desc = curveFields[2]
 	lc.Index = 0
 	return lc
+}
+
+// String - return LasCurve as string
+func (o LasCurve) String() string {
+	return fmt.Sprintf("[\n{\n\"IName\": \"%s\",\n\"Name\": \"%s\",\n\"Mnemonic\": \"%s\",\n\"Unit\": \"%s\",\"Val\": \"%s\",\n\"Desc\": \"%s\"\n}\n]", o.IName, o.Name, o.Mnemonic, o.Unit, o.Val, o.Desc)
+}
+
+// LasCurves - container for store all curves of las file
+// .Cmp(curves *LasCurves) bool - compare two curves containers
+type LasCurves map[string]LasCurve
+
+// Text - return string represent all curves parameters: IName, Name, Unit etc
+func (o LasCurves) Text() string {
+	return "-"
+}
+
+// Cmp - compare current curves container with another
+func (o LasCurves) Cmp(curves LasCurves) (res bool) {
+	res = (len(o) == len(curves))
+	if res {
+		curvesName := make([]string, 0, len(curves))
+		for k := range o {
+			curvesName = append(curvesName, k)
+		}
+		sort.Strings(curvesName)
+		var sb strings.Builder
+		for _, k := range curvesName {
+			sb.WriteString(k)
+		}
+		h1 := xlib.StrHash(sb.String())
+		curvesName = curvesName[:0]
+		for k := range curves {
+			curvesName = append(curvesName, k)
+		}
+		sort.Strings(curvesName)
+		sb.Reset()
+		for _, k := range curvesName {
+			sb.WriteString(k)
+		}
+		h2 := xlib.StrHash(sb.String())
+		res = (h1 == h2)
+	}
+	return res
 }

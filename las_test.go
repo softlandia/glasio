@@ -80,6 +80,7 @@ type tLoadHeader struct {
 }
 
 var dLoadHeader = []tLoadHeader{
+	{fp.Join("data/2.0/cp1251_2.0_well_name.las"), 2.0, "NO", 0.0, 39.9, 0.3, -999.25, "Примерная-1 / бис(ё)"},
 	{fp.Join("data/2.0/cp1251_2.0_based.las"), 2.0, "NO", 0.0, 39.9, 0.3, -999.25, "Примерная-1/бис(ё)"},
 	{fp.Join("data/expand_points_01.las"), 1.2, "NO", 1.0, 1.0, 0.1, -9999.00, "12-Сплошная"},
 	{fp.Join("data/more_20_warnings.las"), 1.2, "NO", 0.0, 0.0, 0.0, -32768.0, "6"}, //in las file STEP=0.0 but this incorrect, LoadHeader replace STEP to actual from data
@@ -87,7 +88,7 @@ var dLoadHeader = []tLoadHeader{
 	{fp.Join("data/1.2/sample.las"), 1.2, "NO", 1670.0, 1660.0, -0.1250, -999.2500, "ANY ET AL OIL WELL #12"},
 	{fp.Join("data/2.0/sample_2.0.las"), 2.0, "NO", 1670.0, 1660.0, -0.1250, -999.2500, "AAAAA_2"},
 	{fp.Join("data/duplicate_step.las"), 1.2, "NO", 1670.0, 1660.0, -0.1200, -999.2500, "ANY ET AL OIL WELL #12"}, //duplicate_step.las contains two line with STEP:: STEP.M -0.1250: STEP.M -0.1200: using LAST parameter
-	{fp.Join("data/encodings_utf8.las"), 1.2, "NO", 1670.0, 1660.0, -0.1250, -999.2500, "ANY ºᶟᵌᴬń OIL WELL #12"},
+	{fp.Join("data/encodings_utf8.las"), 1.2, "NO", 1670.0, 1660.0, -0.1250, -999.2500, "Скв #12Ω"},
 }
 
 func TestLoadHeader(t *testing.T) {
@@ -99,13 +100,13 @@ func TestLoadHeader(t *testing.T) {
 		las.FileName = tmp.fn
 		las.scanner = bufio.NewScanner(las.Reader)
 		las.LoadHeader()
-		assert.Equal(t, las.Ver, tmp.ver, fmt.Sprintf("<LoadHeader> file '%s' readed VER: %f, expected %f", las.FileName, las.Ver, tmp.ver))
-		assert.Equal(t, las.Wrap, tmp.wrap, fmt.Sprintf("<LoadHeader> file '%s' readed WRAP: %s, expected %s", las.FileName, las.Wrap, tmp.wrap))
-		assert.Equal(t, las.Strt, tmp.strt, fmt.Sprintf("<LoadHeader> file '%s' readed STRT: %f, expected %f", las.FileName, las.Strt, tmp.strt))
-		assert.Equal(t, las.Stop, tmp.stop, fmt.Sprintf("<LoadHeader> file '%s' readed STOP: %f, expected %f", las.FileName, las.Stop, tmp.stop))
+		assert.Equal(t, tmp.ver, las.Ver, fmt.Sprintf("<LoadHeader> file '%s' readed VER: %f, expected %f", las.FileName, las.Ver, tmp.ver))
+		assert.Equal(t, tmp.wrap, las.Wrap, fmt.Sprintf("<LoadHeader> file '%s' readed WRAP: %s, expected %s", las.FileName, las.Wrap, tmp.wrap))
+		assert.Equal(t, tmp.strt, las.Strt, fmt.Sprintf("<LoadHeader> file '%s' readed STRT: %f, expected %f", las.FileName, las.Strt, tmp.strt))
+		assert.Equal(t, tmp.stop, las.Stop, fmt.Sprintf("<LoadHeader> file '%s' readed STOP: %f, expected %f", las.FileName, las.Stop, tmp.stop))
 		assert.Equal(t, tmp.step, las.Step, fmt.Sprintf("<LoadHeader> file '%s' readed STEP: %f, expected %f", las.FileName, las.Step, tmp.step))
-		assert.Equal(t, las.Null, tmp.null, fmt.Sprintf("<LoadHeader> file '%s' readed NULL: %f, expected %f", las.FileName, las.Null, tmp.null))
-		assert.Equal(t, las.Well, tmp.well, fmt.Sprintf("<LoadHeader> file '%s' readed WELL: %s, expected %s", las.FileName, las.Well, tmp.well))
+		assert.Equal(t, tmp.null, las.Null, fmt.Sprintf("<LoadHeader> file '%s' readed NULL: %f, expected %f", las.FileName, las.Null, tmp.null))
+		assert.Equal(t, tmp.well, las.Well, fmt.Sprintf("<LoadHeader> file '%s' readed WELL: %s, expected %s", las.FileName, las.Well, tmp.well))
 	}
 }
 
@@ -113,13 +114,13 @@ func TestLoadLasHeader(t *testing.T) {
 	for _, tmp := range dLoadHeader {
 		las, err := LoadLasHeader(tmp.fn)
 		assert.Nil(t, err)
-		assert.Equal(t, las.Ver, tmp.ver, fmt.Sprintf("<LoadHeader> file '%s' readed VER: %f, expected %f", las.FileName, las.Ver, tmp.ver))
-		assert.Equal(t, las.Wrap, tmp.wrap, fmt.Sprintf("<LoadHeader> file '%s' readed WRAP: %s, expected %s", las.FileName, las.Wrap, tmp.wrap))
-		assert.Equal(t, las.Strt, tmp.strt, fmt.Sprintf("<LoadHeader> file '%s' readed STRT: %f, expected %f", las.FileName, las.Strt, tmp.strt))
-		assert.Equal(t, las.Stop, tmp.stop, fmt.Sprintf("<LoadHeader> file '%s' readed STOP: %f, expected %f", las.FileName, las.Stop, tmp.stop))
-		assert.Equal(t, las.Step, tmp.step, fmt.Sprintf("<LoadHeader> file '%s' readed STEP: %f, expected %f", las.FileName, las.Step, tmp.step))
-		assert.Equal(t, las.Null, tmp.null, fmt.Sprintf("<LoadHeader> file '%s' readed NULL: %f, expected %f", las.FileName, las.Null, tmp.null))
-		assert.Equal(t, las.Well, tmp.well, fmt.Sprintf("<LoadHeader> file '%s' readed WELL: %s, expected %s", las.FileName, las.Well, tmp.well))
+		assert.Equal(t, tmp.ver, las.Ver, fmt.Sprintf("<LoadHeader> file '%s' readed VER: %f, expected %f", las.FileName, las.Ver, tmp.ver))
+		assert.Equal(t, tmp.wrap, las.Wrap, fmt.Sprintf("<LoadHeader> file '%s' readed WRAP: %s, expected %s", las.FileName, las.Wrap, tmp.wrap))
+		assert.Equal(t, tmp.strt, las.Strt, fmt.Sprintf("<LoadHeader> file '%s' readed STRT: %f, expected %f", las.FileName, las.Strt, tmp.strt))
+		assert.Equal(t, tmp.stop, las.Stop, fmt.Sprintf("<LoadHeader> file '%s' readed STOP: %f, expected %f", las.FileName, las.Stop, tmp.stop))
+		assert.Equal(t, tmp.step, las.Step, fmt.Sprintf("<LoadHeader> file '%s' readed STEP: %f, expected %f", las.FileName, las.Step, tmp.step))
+		assert.Equal(t, tmp.null, las.Null, fmt.Sprintf("<LoadHeader> file '%s' readed NULL: %f, expected %f", las.FileName, las.Null, tmp.null))
+		assert.Equal(t, tmp.well, las.Well, fmt.Sprintf("<LoadHeader> file '%s' readed WELL: %s, expected %s", las.FileName, las.Well, tmp.well))
 	}
 	//test error case
 	las, err := LoadLasHeader("not_exist_file.las") //file not exist
@@ -205,8 +206,9 @@ func TestExpandPoints(t *testing.T) {
 		las := NewLas()
 		n, err := las.Open(tmp.fn)
 		assert.Nil(t, err, fmt.Sprintf("<TestExpandPoints> on '%s' return error: %v\n", tmp.fn, err))
-		assert.Equal(t, n, tmp.n, fmt.Sprintf("<TestExpandPoints> on '%s' return n: %d expect: %d\n", tmp.fn, n, tmp.n))
-		assert.Equal(t, las.Warnings.Count(), tmp.nWrn, fmt.Sprintf("<TestExpandPoints> '%s' return warning count %d, expected %d\n", tmp.fn, las.Warnings.Count(), tmp.nWrn))
+		assert.Equal(t, tmp.n, n, fmt.Sprintf("<TestExpandPoints> on '%s' return n: %d expect: %d\n", tmp.fn, n, tmp.n))
+		assert.Equal(t, tmp.n, las.NumPoints())
+		assert.Equal(t, tmp.nWrn, las.Warnings.Count(), fmt.Sprintf("<TestExpandPoints> '%s' return warning count %d, expected %d\n", tmp.fn, las.Warnings.Count(), tmp.nWrn))
 		assert.Contains(t, las.Warnings[2].String(), "line: 25", fmt.Sprintf("<TestExpandPoints> '%s' return: '%s' wrong warning index 2\n", tmp.fn, las.Warnings[2]))
 		assert.Contains(t, las.Warnings[4].String(), "line: 27", fmt.Sprintf("<TestExpandPoints> '%s' return: '%s' wrong warning index 4\n", tmp.fn, las.Warnings[4]))
 	}
@@ -229,6 +231,7 @@ func TestLasSetNull(t *testing.T) {
 }
 
 type tSaveLas struct {
+	fn      string
 	cp      cpd.IDCodePage
 	null    float64
 	strt    float64
@@ -239,42 +242,27 @@ type tSaveLas struct {
 }
 
 var dSaveLas = []tSaveLas{
-	{cpd.CP1251, -99.99, 0.201, 10.01, 0.01, "Примерная-101/бис", -0.1},
-	//codepage  null    strt   stop  step   well name           new null
-	{cpd.UTF8, -999.99, 20.21, 1.0, -0.01, "Примерная-101А/бис", -999.25},
-	{cpd.CP866, -909.0, 2.21, 11.11, -0.1, "Примерная-101/\"бис\"", 5555.55},
-	{cpd.KOI8R, -99.0, 0.2, 2.0, -0.1, "Примерная-1001/\"бис\"", -55.55},
+	{fp.Join("test_files/~1251.las"), cpd.CP1251, -99.99, 0.201, 10.01, 0.01, "Примерная-101 / бис", -0.1},
+	//        filename                codepage    null    strt   stop  step   well name           new null
+	{fp.Join("test_files/~koi8.las"), cpd.KOI8R, -99.0, 0.2, 2.0, -0.1, "Примерная-1001 /\"бис\"", -55.55},
+	{fp.Join("test_files/~866.las"), cpd.CP866, -909.0, 2.21, 12.1, -0.1, "Примерная-101 /\"бис\"", 5555.55},
+	{fp.Join("test_files/~utf-8.las"), cpd.UTF8, -999.99, 20.21, 1.0, -0.01, "Примерная-101А / бис", -999.25},
+	{fp.Join("test_files/~utf-16le.las"), cpd.UTF16LE, -999.99, 20.2, 1.0, -0.01, "Примерная-101А /бис", -999.25},
 }
 
 // проверяется запись
-// первый раз в кодировке 1251
-// второй раз в кодировке 866
-// третий в UTF-8
-// четвертый в KOI8
-// дополнительно проверяем функцию SetNull
+// дополнительно проверяем функцию SetNull, это позволяет изменить содержимое las
 func TestLasSave(t *testing.T) {
-	var las *Las
 	for _, tmp := range dSaveLas {
-		if tmp.cp == cpd.CP1251 {
-			las = NewLas()
-		} else {
-			las = NewLas(tmp.cp)
-		}
-		las.Null = tmp.null
-		las.Strt = tmp.strt
-		las.Stop = tmp.stop
-		las.Step = tmp.step
-		las.Well = tmp.well
-		curve := NewLasCurveFromString("SP.mV :spontaniously")
-		las.Logs["SP"] = curve
-		curve.Init(0, "SP", "SP", 5)
+		las := makeSampleLas(tmp.cp, tmp.null, tmp.strt, tmp.stop, tmp.step, tmp.well)
 		las.SetNull(tmp.newNull)
-		//os.Remove("empty.las")
-		err := las.Save("~.las")
+		err := las.Save(tmp.fn)
 		assert.Nil(t, err)
 
-		n, err := las.Open("~.las")
-		assert.Equal(t, 0, n)
+		n, err := las.Open(tmp.fn)
+		//os.Remove(tmp.fn)
+		assert.Nil(t, err)
+		assert.Equal(t, 5, n)
 		assert.Equal(t, tmp.newNull, las.Null)
 		assert.Equal(t, tmp.strt, las.Strt)
 		assert.Equal(t, tmp.stop, las.Stop)
@@ -282,3 +270,27 @@ func TestLasSave(t *testing.T) {
 		assert.Equal(t, tmp.well, las.Well)
 	}
 }
+
+func TestSetNullOnEmptyLas(t *testing.T) {
+	las := NewLas()
+	las.SetNull(-1000)
+	assert.Equal(t, -1000.0, las.Null)
+}
+
+func BenchmarkSave1(b *testing.B) {
+	for _, tmp := range dSaveLas {
+		las := makeSampleLas(tmp.cp, tmp.null, tmp.strt, tmp.stop, tmp.step, tmp.well)
+		las.SetNull(tmp.newNull)
+		las.Save(tmp.fn)
+	}
+}
+
+/*
+func BenchmarkSave2(b *testing.B) {
+	for _, tmp := range dSaveLas {
+		las := makeSampleLas(tmp.cp, tmp.null, tmp.strt, tmp.stop, tmp.step, tmp.well)
+		las.SetNull(tmp.newNull)
+		las.SaveToFile(tmp.fn)
+	}
+}
+*/

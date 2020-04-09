@@ -5,6 +5,7 @@ package glasio
 
 import (
 	"fmt"
+	fp "path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -127,7 +128,7 @@ var dWellInfoStr = []tWellInfoStr{
 func TestNewLasParamFromString(t *testing.T) {
 	var lp *LasParam
 	for _, tmp := range dWellInfoStr {
-		lp = NewLasParamFromString(tmp.s)
+		lp = NewLasParam(tmp.s)
 		assert.Equal(t, tmp.f1, lp.Name)
 		assert.Equal(t, tmp.f2, lp.Unit)
 		assert.Equal(t, tmp.f3, lp.Val)
@@ -156,6 +157,10 @@ var dParseCurveStr = []tParseCurveStr{
 	{" ПС   . мВ               ", "ПС", "мВ", ""},                 //9
 	{" ПС   повт               ", "ПС повт", "", ""},              //10
 	{" ПС   мВ      : 11 кр сам", "ПС мВ", "", "11 кр сам"},       //11
+	{" .      : ", "-EL-", "", ""},                                //12
+	{" .mv      : ", "-EL-", "mv", ""},                            //13
+	{" .mv      :sp", "-EL-", "mv", "sp"},                         //14
+	{" .m v     :sp", "-EL-", "m v", "sp"},                        //15
 }
 
 func TestParseCurveStr(t *testing.T) {
@@ -170,7 +175,7 @@ func TestParseCurveStr(t *testing.T) {
 func TestNewLasCurveFromString(t *testing.T) {
 	var lc LasCurve
 	for _, tmp := range dParseCurveStr {
-		lc = NewLasCurveFromString(tmp.s)
+		lc = NewLasCurve(tmp.s)
 		assert.Equal(t, tmp.f0, lc.Name)
 		assert.Equal(t, tmp.f1, lc.Unit)
 		assert.Equal(t, tmp.f2, lc.Desc)
@@ -178,7 +183,7 @@ func TestNewLasCurveFromString(t *testing.T) {
 }
 
 func TestLasCurveSetLen(t *testing.T) {
-	curve := NewLasCurveFromString("SP.mV  :self")
+	curve := NewLasCurve("SP.mV  :self")
 	curve.Init(0, "SP", "SP", 5)
 	curve.dept[0] = 0.1
 	curve.dept[1] = 0.2
@@ -206,4 +211,16 @@ func TestLasCurveSetLen(t *testing.T) {
 	assert.Equal(t, 2, len(curve.dept))
 	assert.Equal(t, 2, len(curve.log))
 	assert.Equal(t, 0.2, curve.dept[1])
+}
+
+func TestLasCurveString(t *testing.T) {
+	las := makeLasFromFile(fp.Join("data/test-curve-sec-empty-mnemonic.las"))
+	//D.M     : 1  DEPTH
+	assert.Equal(t, "[\n{\n\"IName\": \"D\",\n\"Name\": \"D\",\n\"Mnemonic\": \"\",\n\"Unit\": \"M\",\"Val\": \"\",\n\"Desc\": \"1 DEPTH\"\n}\n]", las.Logs["D"].String())
+	//A.US/M  : 2  SONIC TRANSIT TIME
+	assert.Equal(t, "[\n{\n\"IName\": \"A\",\n\"Name\": \"A\",\n\"Mnemonic\": \"\",\n\"Unit\": \"US/M\",\"Val\": \"\",\n\"Desc\": \"2 SONIC TRANSIT TIME\"\n}\n]", las.Logs["A"].String())
+	//-EL-1.      :
+	assert.Equal(t, "[\n{\n\"IName\": \"-EL-\",\n\"Name\": \"-EL-1\",\n\"Mnemonic\": \"\",\n\"Unit\": \"m\",\"Val\": \"\",\n\"Desc\": \"\"\n}\n]", las.Logs["-EL-1"].String())
+	assert.Equal(t, "[\n{\n\"IName\": \"-EL-\",\n\"Name\": \"-EL-2\",\n\"Mnemonic\": \"\",\n\"Unit\": \"v/v\",\"Val\": \"\",\n\"Desc\": \"\"\n}\n]", las.Logs["-EL-2"].String())
+	assert.Equal(t, "[\n{\n\"IName\": \"-EL-\",\n\"Name\": \"-EL-3\",\n\"Mnemonic\": \"\",\n\"Unit\": \"m V\",\"Val\": \"\",\n\"Desc\": \"\"\n}\n]", las.Logs["-EL-3"].String())
 }

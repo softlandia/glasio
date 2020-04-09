@@ -2,6 +2,7 @@ package glasio
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -57,47 +58,52 @@ const (
 	lasSecData     = 4
 )
 
+// LasWellInfo - contain parameters of Well section
+type LasWellInfo struct {
+	ver       float64
+	wrap      string
+	wellName  string
+	null      float64
+	oCodepage cpd.IDCodePage
+}
+
 // Las - class to store las file
 // input code page autodetect
 // at read file always code page converted to UTF
 // at save file code page converted to specifyed in Las.toCodePage
 //TODO add pointer to cfg
-//TODO warnings - need method to flush slice on file, and clear
-//TODO expPoints надо превратить в метод
-//TODO имена скважин с пробелами читаются неверно
 type Las struct {
-	FileName        string              //file name from load
-	File            *os.File            //the file from which we are reading
-	Reader          io.Reader           //reader created from File, provides decode from codepage to UTF-8
-	scanner         *bufio.Scanner      //scanner
-	Ver             float64             //version 1.0, 1.2 or 2.0
-	Wrap            string              //YES || NO
-	Strt            float64             //start depth
-	Stop            float64             //stop depth
-	Step            float64             //depth step
-	Null            float64             //value interpreted as empty
-	Well            string              //well name
-	Rkb             float64             //altitude KB
-	Logs            map[string]LasCurve //store all logs
-	LogDic          *map[string]string  //external dictionary of standart log name - mnemonics
-	VocDic          *map[string]string  //external vocabulary dictionary of log mnemonic
-	Warnings        TLasWarnings        //slice of warnings occure on read or write
-	expPoints       int                 //expected count (.)
-	nPoints         int                 //actually count (.)
-	iCodepage       cpd.IDCodePage      //codepage input file. autodetect
-	oCodepage       cpd.IDCodePage      //codepage to save file, default xlib.CpWindows1251. to special value, specify at make: NewLas(cp...)
-	iDuplicate      int                 //индекс повторящейся мнемоники, увеличивается на 1 при нахождении дубля, начально 0
-	currentLine     int                 //index of current line in readed file
-	maxWarningCount int                 //default maximum warning count
-	stdNull         float64             //default null value
-	CodePage        string              //TODO to delete //пока не читается
+	FileName        string             //file name from load
+	File            *os.File           //the file from which we are reading
+	Reader          io.Reader          //reader created from File, provides decode from codepage to UTF-8
+	scanner         *bufio.Scanner     //scanner
+	Ver             float64            //version 1.0, 1.2 or 2.0
+	Wrap            string             //YES || NO
+	Strt            float64            //start depth
+	Stop            float64            //stop depth
+	Step            float64            //depth step
+	Null            float64            //value interpreted as empty
+	Well            string             //well name
+	Rkb             float64            //altitude KB
+	Logs            LasCurves          //store all logs
+	LogDic          *map[string]string //external dictionary of standart log name - mnemonics
+	VocDic          *map[string]string //external vocabulary dictionary of log mnemonic
+	Warnings        TLasWarnings       //slice of warnings occure on read or write
+	ePoints         int                //expected count (.)
+	nPoints         int                //actually count (.)
+	oCodepage       cpd.IDCodePage     //codepage to save, default xlib.CpWindows1251. to special value, specify at make: NewLas(cp...)
+	iDuplicate      int                //индекс повторящейся мнемоники, увеличивается на 1 при нахождении дубля, начально 0
+	currentLine     int                //index of current line in readed file
+	maxWarningCount int                //default maximum warning count
+	stdNull         float64            //default null value
+	//iCodepage       cpd.IDCodePage     //codepage input file - autodetected
 }
 
-//GetStepFromData - return step from data section
-//read 2 line from section ~A and determine step
-//close file
-//return o.Null if error occure
-//если делать функцией, не методом, то придётся NULL передавать. а оно надо вообще
+// GetStepFromData - return step from data section
+// read 2 line from section ~A and determine step
+// close file
+// return o.Null if error occure
+// если делать функцией, не методом, то придётся NULL передавать. а оно надо вообще
 func (o *Las) GetStepFromData(fileName string) float64 {
 	iFile, err := os.Open(fileName)
 	if err != nil {
@@ -134,6 +140,7 @@ func (o *Las) GetStepFromData(fileName string) float64 {
 		dept2 = dept1
 	}
 	//если мы попали сюда, то всё грусно, в файле после ~A не нашлось двух строчек с данными... или пустые строчки или комменты
+	// TODO последняя строка "return o.Null" не обрабатывается в тесте
 	return o.Null
 }
 
@@ -150,21 +157,6 @@ func (o *Las) SetNull(aNull float64) error {
 	return nil
 }
 
-func (o *Las) convertStrToOut(s string) string {
-	r, _ := cpd.NewReaderTo(strings.NewReader(s), o.oCodepage.String())
-	b, _ := ioutil.ReadAll(r)
-	return string(b)
-	/*
-		switch o.oCodepage {
-		case cpd.CP866:
-			s, _, _ = transform.String(charmap.CodePage866.NewEncoder(), s)
-		case cpd.CP1251:
-			s, _, _ = transform.String(charmap.Windows1251.NewEncoder(), s)
-		}
-		return s
-	*/
-}
-
 //logByIndex - return log from map by Index
 func (o *Las) logByIndex(i int) (*LasCurve, error) {
 	for _, v := range o.Logs {
@@ -175,6 +167,15 @@ func (o *Las) logByIndex(i int) (*LasCurve, error) {
 	return nil, fmt.Errorf("log with index: %v not present", i)
 }
 
+var (
+	// ExpPoints - ожидаемое количество точек данных, до чтения мы не можем знать сколько точек будет фактически прочитано
+	ExpPoints int = 1000
+	// StdNull - пустое значение
+	StdNull float64 = -999.25
+	// MaxWarningCount - слишком много сообщений писать смысла нет
+	MaxWarningCount int = 20
+)
+
 //NewLas - make new object Las class
 //autodetect code page at load file
 //code page to save by default is cpd.CP1251
@@ -182,15 +183,36 @@ func NewLas(outputCP ...cpd.IDCodePage) *Las {
 	las := new(Las)
 	las.Ver = 2.0
 	las.Wrap = "NO"
-	las.expPoints = 1000
+	las.ePoints = 1000
 	las.Logs = make(map[string]LasCurve)
-	las.maxWarningCount = 20 //TODO read from Cfg
-	las.stdNull = -999.25    //TODO read from Cfg
+	las.maxWarningCount = MaxWarningCount
+	las.stdNull = -999.25
 	if len(outputCP) > 0 {
 		las.oCodepage = outputCP[0]
 	} else {
 		las.oCodepage = cpd.CP1251
 	}
+	//mnemonic dictionary
+	las.LogDic = nil
+	//external log dictionary
+	las.VocDic = nil
+	//счётчик повторяющихся мнемоник, увеличивается каждый раз на 1, используется при переименовании мнемоники
+	las.iDuplicate = 0
+	return las
+}
+
+// NewLasPar - create new object with parameters
+func NewLasPar(lasInfo LasWellInfo) *Las {
+	las := new(Las)
+	las.Ver = lasInfo.ver
+	las.Wrap = lasInfo.wrap
+	las.Well = lasInfo.wellName
+	las.stdNull = lasInfo.null
+	las.oCodepage = lasInfo.oCodepage
+
+	las.maxWarningCount = MaxWarningCount
+	las.ePoints = ExpPoints
+	las.Logs = make(map[string]LasCurve)
 	//mnemonic dictionary
 	las.LogDic = nil
 	//external log dictionary
@@ -251,7 +273,7 @@ func (o *Las) checkWellInfoSection() error {
 
 // IsWraped - return true if WRAP == YES
 func (o *Las) IsWraped() bool {
-	return (strings.Index(strings.ToUpper(o.Wrap), "Y") >= 0)
+	return strings.Contains(strings.ToUpper(o.Wrap), "Y") //(strings.Index(strings.ToUpper(o.Wrap), "Y") >= 0)
 }
 
 // SaveWarning - save to file all warning
@@ -407,7 +429,7 @@ func (o *Las) ReadParameter(s string, secNum int) error {
 
 func (o *Las) readVersionParam(s string) error {
 	var err error
-	p := NewLasParamFromString(s)
+	p := NewLasParam(s)
 	switch p.Name {
 	case "VERS":
 		o.Ver, err = strconv.ParseFloat(p.Val, 64)
@@ -420,7 +442,7 @@ func (o *Las) readVersionParam(s string) error {
 //ReadWellParam - read parameter from WELL section
 func (o *Las) ReadWellParam(s string) error {
 	var err error
-	p := NewLasParamFromString(s)
+	p := NewLasParam(s)
 	switch p.Name {
 	case "STRT":
 		o.Strt, err = strconv.ParseFloat(p.Val, 64)
@@ -434,7 +456,8 @@ func (o *Las) ReadWellParam(s string) error {
 		if o.Ver < 2.0 {
 			o.Well = p.Desc
 		} else {
-			o.Well = p.Val
+			//o.Well = p.Val
+			o.Well = wellNameFromParam(p)
 		}
 	}
 	if err != nil {
@@ -464,9 +487,9 @@ func (o *Las) ChangeDuplicateLogName(name string) string {
 //Name     - ключ в map хранилище, повторятся не может. если в исходном есть повторение, то Name строится добавлением к IName индекса
 //Mnemonic - мнемоника, берётся из словаря, если в словаре не найдено, то ""
 func (o *Las) readCurveParam(s string) error {
-	l := NewLasCurveFromString(s)
+	l := NewLasCurve(s)
 	l.Init(len(o.Logs), o.GetMnemonic(l.Name), o.ChangeDuplicateLogName(l.Name), o.GetExpectedPointsCount())
-	o.Logs[l.Name] = l //добавление в карту кривой каротажа с колонкой глубин
+	o.Logs[l.Name] = l //добавление в хранилище кривой каротажа с колонкой глубин
 	return nil
 }
 
@@ -475,7 +498,7 @@ func (o *Las) GetExpectedPointsCount() int {
 	var m int
 	//TODO нужно обработать все случаи
 	if o.Step == 0.0 {
-		return o.expPoints
+		return o.ePoints
 	}
 	if math.Abs(o.Stop) > math.Abs(o.Strt) {
 		m = int((o.Stop-o.Strt)/o.Step) + 2
@@ -484,6 +507,9 @@ func (o *Las) GetExpectedPointsCount() int {
 	}
 	if m < 0 {
 		m = -m
+	}
+	if m == 0 {
+		return o.ePoints
 	}
 	return m
 }
@@ -494,13 +520,13 @@ func (o *Las) expandDept(d *LasCurve) {
 	o.addWarning(TWarning{directOnRead, lasSecData, o.currentLine, "actual number of data lines more than expected, check: STRT, STOP, STEP"})
 	o.addWarning(TWarning{directOnRead, lasSecData, o.currentLine, "expand number of points"})
 	//ожидаем удвоения данных
-	o.expPoints *= 2
+	o.ePoints *= 2
 	//expand first log - dept
-	newDept := make([]float64, o.expPoints, o.expPoints)
+	newDept := make([]float64, o.ePoints)
 	copy(newDept, d.dept)
 	d.dept = newDept
 
-	newLog := make([]float64, o.expPoints, o.expPoints)
+	newLog := make([]float64, o.ePoints)
 	copy(newLog, d.dept)
 	d.log = newLog
 	o.Logs[d.Name] = *d
@@ -510,11 +536,11 @@ func (o *Las) expandDept(d *LasCurve) {
 	var l *LasCurve
 	for j := 1; j < n; j++ {
 		l, _ = o.logByIndex(j)
-		newDept := make([]float64, o.expPoints, o.expPoints)
+		newDept := make([]float64, o.ePoints)
 		copy(newDept, l.dept)
 		l.dept = newDept
 
-		newLog := make([]float64, o.expPoints, o.expPoints)
+		newLog := make([]float64, o.ePoints)
 		copy(newLog, l.log)
 		l.log = newLog
 		o.Logs[l.Name] = *l
@@ -533,14 +559,14 @@ func (o *Las) ReadDataSec(fileName string) (int, error) {
 	)
 
 	//исходя из параметров STRT, STOP и STEP определяем ожидаемое количество строк данных
-	o.expPoints = o.GetExpectedPointsCount()
+	o.ePoints = o.GetExpectedPointsCount()
 	//o.currentLine++
 	n := len(o.Logs)       //количество каротажей, столько колонок данных ожидаем
 	d, _ = o.logByIndex(0) //dept log
 	s := ""
 	for i = 0; o.scanner.Scan(); i++ {
 		o.currentLine++
-		if i == o.expPoints {
+		if i == o.ePoints {
 			o.expandDept(d)
 		}
 		s = strings.TrimSpace(o.scanner.Text())
@@ -618,7 +644,10 @@ func (o *Las) ReadDataSec(fileName string) (int, error) {
 	}
 	//i - actually readed lines and add (.) to data array
 	//crop logs to actually len
-	o.setActuallyNumberPoints(i)
+	err = o.setActuallyNumberPoints(i)
+	if err != nil {
+		return 0, err
+	}
 	return i, nil
 }
 
@@ -652,11 +681,15 @@ func (o *Las) setActuallyNumberPoints(numPoints int) error {
 	return nil
 }
 
-//Save - save to file
-//rewrite if file exist
-//if useMnemonic == true then on save using std mnemonic on ~Curve section
-//TODO las have field filename of readed las file, after save filename must update or not? warning occure on write for what file?
-func (o *Las) Save(fileName string, useMnemonic ...bool) error {
+/*
+func (o *Las) convertStrToOut(s string) string {
+	r, _ := cpd.NewReaderTo(strings.NewReader(s), o.oCodepage.String())
+	b, _ := ioutil.ReadAll(r)
+	return string(b)
+}
+
+
+func (o *Las) SaveToFile(fileName string, useMnemonic ...bool) error {
 	n := len(o.Logs) //log count
 	if n <= 0 {
 		return errors.New("logs not exist")
@@ -679,7 +712,6 @@ func (o *Las) Save(fileName string, useMnemonic ...bool) error {
 	fmt.Fprint(f, _LasFirstLine)
 	fmt.Fprintf(f, _LasVersion, o.Ver)
 	fmt.Fprint(f, _LasWrap)
-	fmt.Fprint(f, _LasCodePage)
 	fmt.Fprint(f, _LasWellInfoSec)
 	fmt.Fprintf(f, _LasStrt, o.Strt)
 	fmt.Fprintf(f, _LasStop, o.Stop)
@@ -720,4 +752,94 @@ func (o *Las) Save(fileName string, useMnemonic ...bool) error {
 		fmt.Fprintln(f)
 	}
 	return nil
+}
+*/
+
+//Save - save to file
+//rewrite if file exist
+//if useMnemonic == true then on save using std mnemonic on ~Curve section
+//TODO las have field filename of readed las file, after save filename must update or not? warning occure on write for what file?
+func (o *Las) Save(fileName string, useMnemonic ...bool) error {
+	var (
+		err       error
+		bufToSave []byte
+	)
+	if len(useMnemonic) > 0 {
+		bufToSave, err = o.SaveToBuf(true)
+	} else {
+		bufToSave, err = o.SaveToBuf(false)
+	}
+	if err != nil {
+		return err
+	}
+	if !xlib.FileExists(fileName) {
+		err = os.MkdirAll(filepath.Dir(fileName), os.ModePerm)
+		if err != nil {
+			return errors.New("path: '" + filepath.Dir(fileName) + "' can't create >>" + err.Error())
+		}
+	}
+	err = ioutil.WriteFile(fileName, bufToSave, 0644)
+	if err != nil {
+		return errors.New("file: '" + fileName + "' can't open to write >>" + err.Error())
+	}
+	return nil
+}
+
+// SaveToBuf - save to file
+// rewrite if file exist
+// if useMnemonic == true then on save using std mnemonic on ~Curve section
+// ir return err != nil then fatal error, returned slice is not full corrected
+func (o *Las) SaveToBuf(useMnemonic bool) ([]byte, error) {
+	n := len(o.Logs) //log count
+	if n <= 0 {
+		return nil, errors.New("logs not exist")
+	}
+	var err error
+	var b bytes.Buffer
+	fmt.Fprint(&b, _LasFirstLine)
+	fmt.Fprintf(&b, _LasVersion, o.Ver)
+	fmt.Fprint(&b, _LasWrap)
+	fmt.Fprint(&b, _LasWellInfoSec)
+	fmt.Fprintf(&b, _LasStrt, o.Strt)
+	fmt.Fprintf(&b, _LasStop, o.Stop)
+	fmt.Fprintf(&b, _LasStep, o.Step)
+	fmt.Fprintf(&b, _LasNull, o.Null)
+	fmt.Fprintf(&b, _LasWell, o.Well)
+	fmt.Fprint(&b, _LasCurvSec)
+	fmt.Fprint(&b, _LasCurvDept)
+
+	var sb strings.Builder
+	sb.WriteString("# DEPT  |") //готовим строчку с названиями каротажей глубина всегда присутствует
+	var l *LasCurve
+	for i := 1; i < n; i++ { //Пишем названия каротажей
+		l, _ := o.logByIndex(i)
+		if useMnemonic {
+			if len(l.Mnemonic) > 0 {
+				l.Name = l.Mnemonic
+			}
+		}
+		fmt.Fprintf(&b, _LasCurvLine, l.Name, l.Unit) //запись мнемоник в секции ~Curve
+		sb.WriteString(" ")
+		fmt.Fprintf(&sb, "%-8s|", l.Name) //Собираем строчку с названиями каротажей
+	}
+
+	fmt.Fprint(&b, _LasDataSec)
+	//write data
+	fmt.Fprintf(&b, "%s\n", sb.String())
+	dept, _ := o.logByIndex(0)
+	for i := 0; i < o.nPoints; i++ { //loop by dept (.)
+		fmt.Fprintf(&b, "%-9.3f ", dept.dept[i])
+		for j := 1; j < n; j++ { //loop by logs
+			l, err = o.logByIndex(j)
+			if err != nil {
+				o.addWarning(TWarning{directOnWrite, lasSecData, i, "logByIndex() return error, log not found, panic"})
+				return nil, errors.New("logByIndex() return error, log not found, panic")
+			}
+			fmt.Fprintf(&b, "%-9.3f ", l.log[i])
+		}
+		fmt.Fprintln(&b)
+	}
+	r, _ := cpd.NewReaderTo(io.Reader(&b), o.oCodepage.String()) //ошибку не обрабатываем, допустимость oCodepage проверяем раньше, других причин нет
+	bufToSave, _ := ioutil.ReadAll(r)
+	return bufToSave, nil
 }

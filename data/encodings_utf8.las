@@ -9,7 +9,7 @@
  STEP.M            -0.1250:
  NULL.           -999.2500:
  COMP.             COMPANY:   # ANY OIL COMPANY LTD.
- WELL.                WELL:   ANY ºᶟᵌᴬń OIL WELL #12
+ WELL.                WELL:   Скв #12Ω
  FLD .               FIELD:   EDAM
  LOC .            LOCATION:   A9-16-49-20W3M
  PROV.            PROVINCE:   SASKATCHEWAN
@@ -21,7 +21,7 @@
 #---------    -------------   ------------------------------
  DEPT.M                      :  1  ºᶟᵌᴬń
  DT  .US/M     		     :  2  SONIC TRANSIT TIME
- ºᶟᵌᴬń.K/M3                   :  3  BULK DENSITY
+ σ.K/M3                      :  3  BULK DENSITY
  NPHI.V/V                    :  4   NEUTRON POROSITY
  SFLU.OHMM                   :  5  RXO RESISTIVITY
  SFLA.OHMM                   :  6  SHALLOW RESISTIVITY

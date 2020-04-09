@@ -9,7 +9,7 @@
  STEP.M            -0.1250:
  NULL.           -999.2500:
  COMP.             COMPANY:   # ANY OIL COMPANY LTD.
- WELL.                WELL:   Скважина ºᶟᵌᴬń #12
+ WELL.                WELL:   Скважина #12Ω
  FLD .               FIELD:   EDAM
  LOC .            LOCATION:   A9-16-49-20W3M
  PROV.            PROVINCE:   SASKATCHEWAN

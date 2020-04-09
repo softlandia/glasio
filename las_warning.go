@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 )
 
 const (
@@ -41,13 +42,19 @@ func (o *TWarning) ToCsvString(sep ...string) string {
 }
 
 //TLasWarnings - class to store and manipulate warnings
-//Count() - return wrnings count
+//Count() - return warnings count
 //SaveWarning(fileName string) error
 //SaveWarningToWriter(writer *bufio.Writer) int
 //SaveWarningToFile(oFile *os.File) int
 //ToString() string
 //for i, w := range obj {w.ToString()} - перебор всех варнингов
 type TLasWarnings []TWarning
+
+//separators for output Warnings to string
+var (
+	RecordSeparator = "\n"
+	FieldSeparator  = ","
+)
 
 //Count - return number of element
 func (o TLasWarnings) Count() int {
@@ -64,17 +71,16 @@ func (o *TLasWarnings) ToString(sep ...string) string {
 		return ""
 	}
 	var (
-		result   string
 		fieldSep string
 		recSep   string
 	)
 	switch len(sep) {
 	case 0:
-		recSep = "\n"
-		fieldSep = ";"
+		recSep = RecordSeparator
+		fieldSep = FieldSeparator
 	case 1:
 		recSep = sep[0]
-		fieldSep = ";"
+		fieldSep = FieldSeparator
 	case 2:
 		recSep = sep[0]
 		fieldSep = sep[1]
@@ -82,10 +88,12 @@ func (o *TLasWarnings) ToString(sep ...string) string {
 		recSep = sep[0]
 		fieldSep = sep[1]
 	}
+	var sb strings.Builder
 	for _, w := range *o {
-		result += (w.ToCsvString(fieldSep) + recSep)
+		sb.WriteString(w.ToCsvString(fieldSep))
+		sb.WriteString(recSep)
 	}
-	return result
+	return sb.String()
 }
 
 //SaveWarning - save to file all warning
