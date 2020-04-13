@@ -3,6 +3,7 @@
 package glasio
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -30,8 +31,8 @@ var dSummaryCheck = []tSummaryCheck{
 	{fp.Join("data/1001178549.las"), 2.0, "YES", 1783.5, 1784.5, 0.25, -999.25, "1-28", 27, 0, true},
 	{fp.Join("data/alog.las"), 1.20, "NO", 0, 0, 0.05, -999.25, "", 9, 24, false},
 	{fp.Join("data/autodepthindex_F.las"), 1.20, "NO", 0, 100, 1, -999.25, "ANY ET AL OIL WELL #12", 2, 101, false},
-	{fp.Join("data/barebones.las"), 2.0, "NO", 0, 0, 0, 0, "", 1, 0, true},
-	{fp.Join("data/barebones2.las"), 2.0, "NO", 0, 0, -0.1, -999.25, "", 0, 0, true},
+	{fp.Join("data/barebones.las"), 2.0, "NO", 0, 0, 1.1, -999.25, "", 1, 0, true},
+	{fp.Join("data/barebones2.las"), 2.0, "NO", 0, 0, 0, 0, "", 0, 0, true}, // step и null не правятся, отсутствует секция Curve, ошибка заголовка
 	{fp.Join("data/blank_line.las"), 2.0, "NO", -999.25, -999.25, 0.0833333333333333, -999.25, "", 1, 0, true},
 	{fp.Join("data/data_characters.las"), 2.0, "NO", 0, 0, 10, -999.25, "", 4, 0, true},
 	{fp.Join("data/duplicate_step.las"), 1.2, "NO", 1670, 1660, -0.12, -999.25, "ANY ET AL OIL WELL #12", 8, 3, false},
@@ -66,8 +67,8 @@ func TestSummaryRead(t *testing.T) {
 		assert.Equal(t, tmp.wrap, las.Wrap)
 		assert.Equal(t, tmp.strt, las.Strt)
 		assert.Equal(t, tmp.stop, las.Stop)
-		assert.Equal(t, tmp.step, las.Step)
-		assert.Equal(t, tmp.null, las.Null)
+		assert.Equal(t, tmp.step, las.Step, fmt.Sprintf("<TestSummaryRead> step fail on file: '%s'\n", tmp.fn))
+		assert.Equal(t, tmp.null, las.Null, fmt.Sprintf("<TestSummaryRead> null fail on file: '%s'\n", tmp.fn))
 		assert.Equal(t, tmp.well, las.Well)
 	}
 }

@@ -186,7 +186,7 @@ func TestGetStepFromData(t *testing.T) {
 	for _, tmp := range dGetDataStep {
 		las := NewLas()
 		las.Open(tmp.fn)
-		assert.Equal(t, tmp.st, las.Step)
+		assert.Equal(t, tmp.st, las.Step, fmt.Sprintf("<TestGetStepFromData> fail on file '%s' \n", tmp.fn))
 	}
 }
 

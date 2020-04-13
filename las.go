@@ -104,14 +104,14 @@ type Las struct {
 // close file
 // return o.Null if error occure
 // если делать функцией, не методом, то придётся NULL передавать. а оно надо вообще
-func (o *Las) GetStepFromData(fileName string) float64 {
-	iFile, err := os.Open(fileName)
+func (o *Las) GetStepFromData() float64 {
+	iFile, err := os.Open(o.FileName)
 	if err != nil {
 		return o.Null
 	}
 	defer iFile.Close()
 
-	_, iScanner, err := xlib.SeekFileStop(fileName, "~A")
+	_, iScanner, err := xlib.SeekFileStop(o.FileName, "~A")
 	if (err != nil) || (iScanner == nil) {
 		return o.Null
 	}
@@ -126,8 +126,8 @@ func (o *Las) GetStepFromData(fileName string) float64 {
 			continue
 		}
 		k := strings.IndexRune(s, ' ')
-		if k < 0 { //data line must have minimum 2 column separated ' ' space
-			return o.Null
+		if k < 0 {
+			k = len(s)
 		}
 		dept1, err = strconv.ParseFloat(s[:k], 64)
 		if err != nil {
@@ -142,6 +142,10 @@ func (o *Las) GetStepFromData(fileName string) float64 {
 	//если мы попали сюда, то всё грусно, в файле после ~A не нашлось двух строчек с данными... или пустые строчки или комменты
 	// TODO последняя строка "return o.Null" не обрабатывается в тесте
 	return o.Null
+}
+
+func (o *Las) setStep(h float64) {
+	o.Step = h
 }
 
 //SetNull - change parameter NULL in WELL INFO section and in all logs
@@ -250,25 +254,76 @@ func (o *Las) selectSection(r rune) int {
 	}
 }
 
-//make test of loaded well info section
-//return error <> nil in one case, if getStepFromData return error
-func (o *Las) checkWellInfoSection() error {
-	if o.Step == 0.0 {
-		//TODO менять здесь шаг нельзя, здесь только проверка и сохранение извещения о некорректности, менять надо потом
-		o.Step = o.GetStepFromData(o.FileName) // return o.Null if cannot calculate step from data
-		if o.Step == o.Null {
-			return errors.New("invalid STEP parameter and invalid step in data")
+const (
+	checkHeaderStep     = iota
+	checkHeaderNull     = iota
+	checkHeaderWrap     = iota
+	checkHeaderCurve    = iota
+	checkHeaderStrtStop = iota
+)
+
+// HeaderCheckMsg - one message on check las Header
+type HeaderCheckMsg struct {
+	id  int
+	msg string
+}
+
+// HeaderCheckRes - result of check readed las Header
+type HeaderCheckRes []HeaderCheckMsg
+
+func (hc *HeaderCheckRes) needUpdateStep() bool {
+	for _, m := range *hc {
+		if m.id == checkHeaderStep {
+			return true
 		}
-		o.addWarning(TWarning{directOnRead, lasSecWellInfo, -1, fmt.Sprintf("STEP parameter equal 0, replace to %4.3f", o.Step)})
 	}
+	return false
+}
+
+func (hc *HeaderCheckRes) needUpdateNull() bool {
+	for _, m := range *hc {
+		if m.id == checkHeaderNull {
+			return true
+		}
+	}
+	return false
+}
+
+func (hc *HeaderCheckRes) addStepWarning() {
+	*hc = append(*hc, HeaderCheckMsg{checkHeaderStep, ""})
+}
+
+func (hc *HeaderCheckRes) addNullWarning() {
+	*hc = append(*hc, HeaderCheckMsg{checkHeaderNull, ""})
+}
+
+// make test of loaded las header
+// return error:
+// - double error on STEP parameter
+// - las file is WRAP == ON
+// - Curve section not exist
+func (o *Las) checkHeader() (HeaderCheckRes, error) {
+	res := make(HeaderCheckRes, 0)
 	if o.Null == 0.0 {
-		o.Null = o.stdNull
+		res.addNullWarning()
 		o.addWarning(TWarning{directOnRead, lasSecWellInfo, -1, fmt.Sprintf("NULL parameter equal 0, replace to %4.3f", o.Null)})
+	}
+	if o.Step == 0.0 {
+		res.addStepWarning()
+		o.addWarning(TWarning{directOnRead, lasSecWellInfo, -1, fmt.Sprintf("STEP parameter equal 0, replace to %4.3f", o.Step)})
 	}
 	if math.Abs(o.Stop-o.Strt) < 0.1 {
 		o.addWarning(TWarning{directOnRead, lasSecWellInfo, -1, fmt.Sprintf("invalid STRT: %4.3f or STOP: %4.3f, will be replace to actually", o.Strt, o.Stop)})
 	}
-	return nil
+	if o.IsWraped() {
+		o.addWarning(TWarning{directOnRead, lasSecData, -1, "WRAP = YES, file ignored"})
+		return res, fmt.Errorf("Wrapped files not support") //return 0, nil
+	}
+	if len(o.Logs) <= 0 {
+		o.addWarning(TWarning{directOnRead, lasSecData, -1, "section ~Curve not exist, file ignored"})
+		return res, fmt.Errorf("Curve section not exist") //return 0, nil
+	}
+	return res, nil
 }
 
 // IsWraped - return true if WRAP == YES
@@ -345,6 +400,11 @@ func (o *Las) GetMnemonic(logName string) string {
 }
 
 // Open - load las file
+// return error on:
+// - file to open not exist
+// - file cannot be decoded to UTF-8
+// - las is wrapped
+// - las file not contain Curve section
 func (o *Las) Open(fileName string) (int, error) {
 	//TODO при создании объекта las есть возможность указать кодировку записи, нужна возможность указать явно кодировку чтения
 	var err error
@@ -360,24 +420,24 @@ func (o *Las) Open(fileName string) (int, error) {
 		return 0, err
 	}
 	o.scanner = bufio.NewScanner(o.Reader)
-
-	//load header from stored Reader
 	o.currentLine = 0
 	o.LoadHeader()
-	//проверка корректности данных секции WELL INFO перез загрузкой данных
-	//непоправимая ошибка если невозможно определить корректно шаг
-	err = o.checkWellInfoSection()
+	// проверка корректности данных секции WELL INFO перез загрузкой данных
+	res, err := o.checkHeader() // res содержит несколько сообщений связанных с корректностью заголовка las файла
 	if err != nil {
-		return 0, err // двойная ошибка, плох параметр STEP и не удалось вычислить STEP по данным, с данными проблема...
+		return 0, err // дальше читать файл смысла нет, или с файл переносами или нет секции Curve ...
 	}
-
-	if o.IsWraped() {
-		o.addWarning(TWarning{directOnRead, lasSecData, -1, "WRAP = YES, file ignored"})
-		return 0, nil //TODO здесь должна быть ошибка, мы не добрались до чтения данных
+	err = nil
+	// обрабатываем изменение параметров las файла по результатам чтения заголовка
+	if res.needUpdateNull() {
+		o.SetNull(o.stdNull)
 	}
-	if len(o.Logs) <= 0 {
-		o.addWarning(TWarning{directOnRead, lasSecData, -1, "section ~Curve not exist, file ignored"})
-		return 0, nil //TODO здесь должна быть ошибка, мы не добрались до чтения данных
+	if res.needUpdateStep() {
+		h := o.GetStepFromData() // return o.Null if cannot calculate step from data
+		o.setStep(h)
+		if h == o.Null {
+			return 0, errors.New("invalid STEP parameter and invalid step in data")
+		}
 	}
 	return o.ReadDataSec(fileName)
 }
@@ -388,7 +448,9 @@ func (o *Las) Open(fileName string) (int, error) {
 2. если коммент или пустая в игнор
 3. если начало секции, определяем какой
 4. если началась секция данных заканчиваем
-5. читаем одну строку (это один параметер из известной нам секции) */
+5. читаем одну строку (это один параметер из известной нам секции)
+   Пока ошибку всегда возвращает nil, причин возвращать другое значение пока нет.
+*/
 func (o *Las) LoadHeader() error {
 	s := ""
 	var err error

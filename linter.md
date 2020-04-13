@@ -1,77 +1,14 @@
-example2\main.go:44:10: Error return value of `las.Save` is not checked (errcheck)
-	las.Save(las.FileName + "-") //сохраняем с символом минус в расширении
-	        ^
-example2\main.go:50:15: Error return value of `filepath.Walk` is not checked (errcheck)
-	filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
-	             ^
-example\main.go:48:17: Error return value of `las.SaveWarning` is not checked (errcheck)
-	las.SaveWarning("1.warning.md")
-	               ^
-las.go:300:21: Error return value of `writer.WriteString` is not checked (errcheck)
-		writer.WriteString(w.String())
-		                  ^
-las.go:301:21: Error return value of `writer.WriteString` is not checked (errcheck)
-		writer.WriteString("\n")
-		                  ^
-las.go:314:19: Error return value of `oFile.WriteString` is not checked (errcheck)
-	oFile.WriteString("**file: " + o.FileName + "**\n")
-	                 ^
-las.go:316:19: Error return value of `oFile.WriteString` is not checked (errcheck)
-	oFile.WriteString("\n")
-	                 ^
-las.go:366:14: Error return value of `o.LoadHeader` is not checked (errcheck)
-	o.LoadHeader()
-	            ^
-las_logger.go:37:16: Error return value of `f.WriteString` is not checked (errcheck)
-		f.WriteString(msg)
-		             ^
-las_logger.go:58:16: Error return value of `f.WriteString` is not checked (errcheck)
-		f.WriteString(s)
-		             ^
-las_logger.go:60:15: Error return value of `f.WriteString` is not checked (errcheck)
-	f.WriteString("\n")
-	             ^
-las_param_test.go:40:20: Error return value of `las.ReadWellParam` is not checked (errcheck)
-		las.ReadWellParam(tmp.s)
-		                 ^
-las_test.go:42:10: Error return value of `las.Open` is not checked (errcheck)
-	las.Open(fp.Join("data/more_20_warnings.las"))
-	        ^
-las_test.go:48:10: Error return value of `las.Open` is not checked (errcheck)
-	las.Open(fp.Join("data/more_20_warnings.las"))
-	        ^
-las_test.go:50:18: Error return value of `las.SaveWarning` is not checked (errcheck)
-		las.SaveWarning(fp.Join("data/more_20_warnings.wrn"))
-		               ^
-las_test.go:102:17: Error return value of `las.LoadHeader` is not checked (errcheck)
-		las.LoadHeader()
-		              ^
-las_test.go:163:10: Error return value of `las.Open` is not checked (errcheck)
-	las.Open(fp.Join("data/more_20_warnings.las"))
-	        ^
-las_test.go:221:13: Error return value of `las.SetNull` is not checked (errcheck)
-	las.SetNull(-999.25)
-	           ^
-las_test.go:223:10: Error return value of `las.Save` is not checked (errcheck)
-	las.Save("-tmp.las")
-	        ^
-las_test.go:258:14: Error return value of `las.SetNull` is not checked (errcheck)
-		las.SetNull(tmp.newNull)
-		           ^
-las_test.go:276:13: Error return value of `las.SetNull` is not checked (errcheck)
-	las.SetNull(-1000)
-	           ^
-las_test.go:284:11: Error return value of `las.Save` is not checked (errcheck)
-		las.Save(tmp.fn)
-		        ^
-las_util.go:62:29: Error return value of `las.setActuallyNumberPoints` is not checked (errcheck)
-	las.setActuallyNumberPoints(5)
-	                           ^
-las_util.go:81:16: Error return value of `las.LoadHeader` is not checked (errcheck)
-	las.LoadHeader()
-	              ^
-las_summary_test.go:24:2: `werr` is unused (structcheck)
-	werr bool
+las_logger.go:49:21: func `(*tCheckMsg).msgFileOpenWarning` is unused (unused)
+las_logger.go:65:23: func `(*tMMnemonic).save` is unused (unused)
+las_logger.go:45:21: func `(*tCheckMsg).msgFileNoData` is unused (unused)
+las_logger.go:41:21: func `(*tCheckMsg).msgFileIsWraped` is unused (unused)
+las_logger.go:55:22: func `(*tCurvRprt).save` is unused (unused)
+las_logger.go:35:21: func `(*tCheckMsg).save` is unused (unused)
+las_logger.go:13:2: field `readedNumPoints` is unused (unused)
+las_logger.go:14:2: field `errorOnOpen` is unused (unused)
+las_util.go:86:6: func `lasOpenCheck` is unused (unused)
+las.go:430:2: ineffectual assignment to `err` (ineffassign)
+	err = nil
 	^
 las.go:25:2: `_LasCodePage` is unused (deadcode)
 	_LasCodePage       = "CPAGE.                         1251: code page \n"
@@ -121,14 +58,90 @@ las.go:49:2: `_LasCurvLine2` is unused (deadcode)
 las.go:51:2: `_LasDataLine` is unused (deadcode)
 	_LasDataLine       = ""
 	^
-las_util.go:86:6: `lasOpenCheck` is unused (deadcode)
-func lasOpenCheck(filename string) LasLog {
-     ^
-las_logger.go:35:21: func `(*tCheckMsg).save` is unused (unused)
-las_logger.go:55:22: func `(*tCurvRprt).save` is unused (unused)
-las_logger.go:65:23: func `(*tMMnemonic).save` is unused (unused)
-las_logger.go:14:2: field `errorOnOpen` is unused (unused)
-las_logger.go:13:2: field `readedNumPoints` is unused (unused)
-las_logger.go:49:21: func `(*tCheckMsg).msgFileOpenWarning` is unused (unused)
-las_logger.go:41:21: func `(*tCheckMsg).msgFileIsWraped` is unused (unused)
-las_logger.go:45:21: func `(*tCheckMsg).msgFileNoData` is unused (unused)
+las.go:260:2: `checkHeaderWrap` is unused (deadcode)
+	checkHeaderWrap     = iota
+	^
+las.go:261:2: `checkHeaderCurve` is unused (deadcode)
+	checkHeaderCurve    = iota
+	^
+las.go:262:2: `checkHeaderStrtStop` is unused (deadcode)
+	checkHeaderStrtStop = iota
+	^
+example\main.go:48:17: Error return value of `las.SaveWarning` is not checked (errcheck)
+	las.SaveWarning("1.warning.md")
+	               ^
+example2\main.go:44:10: Error return value of `las.Save` is not checked (errcheck)
+	las.Save(las.FileName + "-") //сохраняем с символом минус в расширении
+	        ^
+example2\main.go:50:15: Error return value of `filepath.Walk` is not checked (errcheck)
+	filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
+	             ^
+las.go:355:21: Error return value of `writer.WriteString` is not checked (errcheck)
+		writer.WriteString(w.String())
+		                  ^
+las.go:356:21: Error return value of `writer.WriteString` is not checked (errcheck)
+		writer.WriteString("\n")
+		                  ^
+las.go:369:19: Error return value of `oFile.WriteString` is not checked (errcheck)
+	oFile.WriteString("**file: " + o.FileName + "**\n")
+	                 ^
+las.go:371:19: Error return value of `oFile.WriteString` is not checked (errcheck)
+	oFile.WriteString("\n")
+	                 ^
+las.go:424:14: Error return value of `o.LoadHeader` is not checked (errcheck)
+	o.LoadHeader()
+	            ^
+las.go:433:12: Error return value of `o.SetNull` is not checked (errcheck)
+		o.SetNull(o.stdNull)
+		         ^
+las_logger.go:37:16: Error return value of `f.WriteString` is not checked (errcheck)
+		f.WriteString(msg)
+		             ^
+las_logger.go:58:16: Error return value of `f.WriteString` is not checked (errcheck)
+		f.WriteString(s)
+		             ^
+las_logger.go:60:15: Error return value of `f.WriteString` is not checked (errcheck)
+	f.WriteString("\n")
+	             ^
+las_param_test.go:40:20: Error return value of `las.ReadWellParam` is not checked (errcheck)
+		las.ReadWellParam(tmp.s)
+		                 ^
+las_test.go:42:10: Error return value of `las.Open` is not checked (errcheck)
+	las.Open(fp.Join("data/more_20_warnings.las"))
+	        ^
+las_test.go:48:10: Error return value of `las.Open` is not checked (errcheck)
+	las.Open(fp.Join("data/more_20_warnings.las"))
+	        ^
+las_test.go:50:18: Error return value of `las.SaveWarning` is not checked (errcheck)
+		las.SaveWarning(fp.Join("data/more_20_warnings.wrn"))
+		               ^
+las_test.go:102:17: Error return value of `las.LoadHeader` is not checked (errcheck)
+		las.LoadHeader()
+		              ^
+las_test.go:163:10: Error return value of `las.Open` is not checked (errcheck)
+	las.Open(fp.Join("data/more_20_warnings.las"))
+	        ^
+las_test.go:221:13: Error return value of `las.SetNull` is not checked (errcheck)
+	las.SetNull(-999.25)
+	           ^
+las_test.go:223:10: Error return value of `las.Save` is not checked (errcheck)
+	las.Save("-tmp.las")
+	        ^
+las_test.go:258:14: Error return value of `las.SetNull` is not checked (errcheck)
+		las.SetNull(tmp.newNull)
+		           ^
+las_test.go:276:13: Error return value of `las.SetNull` is not checked (errcheck)
+	las.SetNull(-1000)
+	           ^
+las_test.go:284:11: Error return value of `las.Save` is not checked (errcheck)
+		las.Save(tmp.fn)
+		        ^
+las_util.go:62:29: Error return value of `las.setActuallyNumberPoints` is not checked (errcheck)
+	las.setActuallyNumberPoints(5)
+	                           ^
+las_util.go:81:16: Error return value of `las.LoadHeader` is not checked (errcheck)
+	las.LoadHeader()
+	              ^
+las_summary_test.go:25:2: `werr` is unused (structcheck)
+	werr bool
+	^
