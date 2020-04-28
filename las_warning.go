@@ -64,7 +64,7 @@ func (o TLasWarnings) Count() int {
 // ToString - make one string from all elements
 // sep[0] - record separator разделитель записей
 // sep[1] - field separator разделитель полей
-// default separator between field ";" between record "\n"
+// default separator between field "," between record "\n"
 // on empty container return ""
 func (o *TLasWarnings) ToString(sep ...string) string {
 	if o.Count() == 0 {

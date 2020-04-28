@@ -18,7 +18,7 @@ UWI    .  WELL ID : 100091604920W300
 D.M     : 1  DEPTH
 A.US/M  : 2  SONIC TRANSIT TIME
 B.K/M3  : 3  BULK DENSITY
-C.V/V   : 4   NEUTRON POROSITY
+SP.V/V   : 4   SP
 -EL- .      : 
 -EL-1.m     : 
 -EL-2.v/v   : 

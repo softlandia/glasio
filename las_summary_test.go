@@ -1,5 +1,5 @@
-//(c) softland 2020
-//softlandia@gmail.com
+// (c) softland 2020
+// softlandia@gmail.com
 package glasio
 
 import (
@@ -50,7 +50,7 @@ var dSummaryCheck = []tSummaryCheck{
 	{fp.Join("data/missing_vers.las"), 2.0, "NO", 1670, 1660, -0.125, -999.25, "WELL", 8, 3, false},
 	{fp.Join("data/missing_wrap.las"), 1.2, "NO", 1670, 1660, -0.125, -999.25, "ANY ET AL OIL WELL #12", 8, 3, false},
 	{fp.Join("data/more_20_warnings.las"), 1.2, "NO", 0.0, 0.0, 1.0, -32768.0, "6", 6, 23, true}, //in las file STEP=0.0 but this incorrect, LoadHeader replace STEP to actual from data
-	{fp.Join("data/no-data-section.las"), 1.2, "NO", 0.0, 0.0, -32768, -32768.0, "6", 31, 0, true},
+	{fp.Join("data/no-data-section.las"), 1.2, "NO", 0.0, 0.0, 0.0, -32768.0, "6", 31, 0, true},  //in las file STEP=0.0 but this incorrect, data section contain incorrect step too, result step equal from input
 	{fp.Join("data/sample_bracketed_units.las"), 1.2, "NO", 1670, 1660, -0.125, -999.25, "ANY ET AL OIL WELL #12", 8, 3, true},
 	{fp.Join("data/test-curve-sec-empty-mnemonic.las"), 1.2, "NO", 1670, 1669.75, -0.125, -999.25, "ANY ET AL OIL WELL #12", 8, 3, true},
 	{fp.Join("data/UWI_API_leading_zero.las"), 1.2, "NO", 1670, 1660, -0.125, -999.25, "ANY ET AL OIL WELL #12", 8, 3, true},
@@ -90,4 +90,57 @@ func TestCurveSec2(t *testing.T) {
 	las = makeLasFromFile(fp.Join("data/missing_wrap.las"))
 	assert.False(t, cmpLas(correct, las))
 	assert.False(t, correct.Logs.Cmp(las.Logs))
+}
+
+func TestLasCheck(t *testing.T) {
+	lasLog := LasCheck(fp.Join("data/test-curve-sec-empty-mnemonic+.las"))
+	assert.NotNil(t, lasLog)
+	s := lasLog.msgOpen.ToString()
+	assert.Empty(t, s)
+	s = lasLog.msgCheck.String()
+	assert.Empty(t, s)
+	s = lasLog.msgCurve.String(fp.Join("data/test-curve-sec-empty-mnemonic+.las"))
+	assert.Contains(t, s, "test-curve-sec-empty-mnemonic+.las'##")
+
+	// проверка на возврат nil
+	lasLog, err := LasDeepCheck(fp.Join("data/test-curve-sec-empty-mnemonic+.las"), fp.Join("data/mnemonic.-"), fp.Join("data/dic.ini"))
+	assert.Nil(t, lasLog)
+	lasLog, err = LasDeepCheck(fp.Join("data/test-curve-sec-empty-mnemonic+.las"), fp.Join("data/mnemonic.ini"), fp.Join("data/dic.-"))
+	assert.Nil(t, lasLog)
+
+	lasLog, err = LasDeepCheck(fp.Join("data/test-curve-sec-empty-mnemonic+.las"), fp.Join("data/mnemonic.ini"), fp.Join("data/dic.ini"))
+	assert.Nil(t, err)
+	s = lasLog.msgCurve.String(fp.Join("data/test-curve-sec-empty-mnemonic+.las"))
+	assert.Contains(t, s, "*input log: B 	 internal: B 	 mnemonic:*")
+	assert.Contains(t, s, "input log: SP 	 internal: SP 	 mnemonic: SP")
+	assert.Contains(t, s, "*input log: -EL-2 	 internal: -EL-2 	 mnemonic:*")
+	s = lasLog.missMnemonic.String()
+	assert.Contains(t, s, "-EL-1")
+	assert.NotContains(t, s, "SP")
+
+	lasLog, err = LasDeepCheck(fp.Join("data/more_20_warnings.las"), fp.Join("data/mnemonic.ini"), fp.Join("data/dic.ini"))
+	assert.NotNil(t, lasLog)
+	assert.Nil(t, err)
+	s = lasLog.msgOpen.ToString()
+	assert.Contains(t, s, "STEP parameter equal 0")
+	assert.Contains(t, s, "invalid STRT: 0.000 == STOP: 0.000, will be replace to actually")
+	s = lasLog.msgCheck.String()
+	assert.Empty(t, s)
+	s = lasLog.msgCurve.String(fp.Join("data/more_20_warnings.las"))
+	assert.Contains(t, s, "*input log: второй каротаж 	 internal: второй каротаж 	 mnemonic:*")
+	assert.Contains(t, s, "input log: GK 	 internal: GK 	 mnemonic: GR")
+	assert.Contains(t, s, "*input log: первый 	 internal: первый 	 mnemonic:*")
+	s = lasLog.missMnemonic.String()
+	assert.Contains(t, s, "NNB")
+	assert.Contains(t, s, "второй каротаж")
+	assert.NotContains(t, s, "GR")
+
+	// случай если файла нет
+	lasLog, err = LasDeepCheck(fp.Join("data/-test-curve-sec-empty-mnemonic+.las"), fp.Join("data/mnemonic.ini"), fp.Join("data/dic.ini"))
+	assert.NotNil(t, lasLog)
+	assert.NotNil(t, lasLog.errorOnOpen)
+
+	// случай las файл WRAP
+	lasLog = LasCheck(fp.Join("data/1.2/sample_wrapped.las"))
+	assert.Contains(t, lasLog.msgCheck.String(), "WRAP=YES")
 }

@@ -1,46 +1,42 @@
 **file: data\more_20_warnings.las**
 0, line: -1,	desc: STEP parameter equal 0, replace to 0.000
-1, line: -1,	desc: invalid STRT: 0.000 or STOP: 0.000, will be replace to actually
-2, line: 24,	desc: can't convert string: '6.2.2' to number, set to NULL
+1, line: 24,	desc: can't convert string: '6.2.2' to number, set to NULL
+2, line: 25,	desc: not all column readed, set log value to NULL
 3, line: 25,	desc: not all column readed, set log value to NULL
-4, line: 25,	desc: not all column readed, set log value to NULL
-5, line: 27,	desc: actual step  1.00 ≠ global STEP  0.00
+4, line: 26,	desc: actual number of data lines more than expected, check: STRT, STOP, STEP
+5, line: 26,	desc: expand number of points
 6, line: 27,	desc: can't convert string: '6.2.2' to number, set to NULL
-7, line: 29,	desc: actual step  1.00 ≠ global STEP  0.00
-8, line: 29,	desc: can't convert string: '5.97.' to number, set to NULL
-9, line: 31,	desc: actual step  1.00 ≠ global STEP  0.00
+7, line: 29,	desc: can't convert string: '5.97.' to number, set to NULL
+8, line: 30,	desc: actual number of data lines more than expected, check: STRT, STOP, STEP
+9, line: 30,	desc: expand number of points
 10, line: 31,	desc: can't convert string: '6.47.' to number, set to NULL
-11, line: 33,	desc: actual step 64.00 ≠ global STEP  0.00
+11, line: 33,	desc: actual step 64.00 ≠ global STEP  1.00
 12, line: 33,	desc: step 64.00 ≠ previously step  1.00
 13, line: 33,	desc: can't convert string: '5.97.' to number, set to NULL
-14, line: 35,	desc: actual step 47.00 ≠ global STEP  0.00
+14, line: 35,	desc: actual step 47.00 ≠ global STEP  1.00
 15, line: 35,	desc: step 47.00 ≠ previously step 64.00
 16, line: 35,	desc: can't convert string: '5.47.' to number, set to NULL
-17, line: 37,	desc: actual step  1.00 ≠ global STEP  0.00
-18, line: 37,	desc: step  1.00 ≠ previously step 47.00
-19, line: 37,	desc: can't convert string: '4.7.' to number, set to NULL
-20, line: 38,	desc: actual step  1.00 ≠ global STEP  0.00
+17, line: 37,	desc: step  1.00 ≠ previously step 47.00
+18, line: 37,	desc: can't convert string: '4.7.' to number, set to NULL
+19, line: 38,	desc: actual number of data lines more than expected, check: STRT, STOP, STEP
+20, line: 38,	desc: expand number of points
 21, line: 38,	desc: can't convert string: '4.7.' to number, set to NULL
 22, line: 40,	desc: line: 40 is empty, ignore
-23, line: 41,	desc: actual step -117.20 ≠ global STEP  0.00
+23, line: 41,	desc: actual step -117.20 ≠ global STEP  1.00
 24, line: 41,	desc: step -117.20 ≠ previously step  1.00
 25, line: 41,	desc: not all column readed, set log value to NULL
-26, line: 42,	desc: actual step 170.20 ≠ global STEP  0.00
+26, line: 42,	desc: actual step 170.20 ≠ global STEP  1.00
 27, line: 42,	desc: step 170.20 ≠ previously step -117.20
-28, line: 43,	desc: actual step  1.00 ≠ global STEP  0.00
-29, line: 43,	desc: step  1.00 ≠ previously step 170.20
-30, line: 44,	desc: actual step  1.00 ≠ global STEP  0.00
-31, line: 45,	desc: actual step  4.00 ≠ global STEP  0.00
-32, line: 45,	desc: step  4.00 ≠ previously step  1.00
-33, line: 46,	desc: actual step  1.00 ≠ global STEP  0.00
-34, line: 46,	desc: step  1.00 ≠ previously step  4.00
-35, line: 48,	desc: actual step  1.00 ≠ global STEP  0.00
-36, line: 49,	desc: actual step  3.00 ≠ global STEP  0.00
-37, line: 49,	desc: step  3.00 ≠ previously step  1.00
-38, line: 50,	desc: actual step  1.00 ≠ global STEP  0.00
-39, line: 50,	desc: step  1.00 ≠ previously step  3.00
-40, line: 51,	desc: actual step  1.00 ≠ global STEP  0.00
-41, line: 52,	desc: actual step  1.00 ≠ global STEP  0.00
-42, line: 53,	desc: actual step  1.00 ≠ global STEP  0.00
-43, line: 54,	desc: step  0.00 ≠ previously step  1.00
+28, line: 43,	desc: step  1.00 ≠ previously step 170.20
+29, line: 45,	desc: actual step  4.00 ≠ global STEP  1.00
+30, line: 45,	desc: step  4.00 ≠ previously step  1.00
+31, line: 46,	desc: step  1.00 ≠ previously step  4.00
+32, line: 49,	desc: actual number of data lines more than expected, check: STRT, STOP, STEP
+33, line: 49,	desc: expand number of points
+34, line: 49,	desc: actual step  3.00 ≠ global STEP  1.00
+35, line: 49,	desc: step  3.00 ≠ previously step  1.00
+36, line: 50,	desc: step  1.00 ≠ previously step  3.00
+37, line: 54,	desc: actual step  0.00 ≠ global STEP  1.00
+38, line: 54,	desc: step  0.00 ≠ previously step  1.00
+39, line: 55,	desc: actual step  0.00 ≠ global STEP  1.00
 

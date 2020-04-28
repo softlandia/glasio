@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	fp "path/filepath"
 
 	"github.com/softlandia/cpd"
 )
@@ -82,39 +83,56 @@ func LoadLasHeader(fileName string) (*Las, error) {
 	return las, nil
 }
 
+// LasCheck - read and check las file, return object with all warnings
 // считывает файл и собирает все сообщения в один объект
-func lasOpenCheck(filename string) LasLog {
-
-	las := NewLas() // TODO make special constructor to initialize with global Mnemonic and Dic
-	//las.LogDic = &Mnemonic // global var
-	//las.VocDic = &Dic      // global var
-
-	LasLog := NewLasLog(las)
-
-	LasLog.readedNumPoints, LasLog.errorOnOpen = las.Open(filename)
-	LasLog.msgOpen = las.Warnings
-
+// это базовая проверка las файла, прелесть в том что здесь собираются сообщения от прочтения файла
+func LasCheck(filename string) *Logger {
+	las := NewLas()
+	n, err := las.Open(filename)
+	lasLog := NewLogger(las)
+	lasLog.readedNumPoints = n
+	lasLog.errorOnOpen = err
+	lasLog.msgOpen = las.Warnings
 	if las.IsWraped() {
-		LasLog.msgCheck = append(LasLog.msgCheck, LasLog.msgCheck.msgFileIsWraped(filename))
-		//return statLasCheck_WRAP
+		lasLog.msgCheck = append(lasLog.msgCheck, lasLog.msgCheck.msgFileIsWraped(filename))
 	}
 	if las.NumPoints() == 0 {
-		LasLog.msgCheck = append(LasLog.msgCheck, LasLog.msgCheck.msgFileNoData(filename))
-		//return statLasCheck_DATA
+		lasLog.msgCheck = append(lasLog.msgCheck, lasLog.msgCheck.msgFileNoData(filename))
 	}
-	if LasLog.errorOnOpen != nil {
-		LasLog.msgCheck = append(LasLog.msgCheck, LasLog.msgCheck.msgFileOpenWarning(filename, LasLog.errorOnOpen))
+	if lasLog.errorOnOpen != nil {
+		lasLog.msgCheck = append(lasLog.msgCheck, lasLog.msgCheck.msgFileOpenWarning(filename, lasLog.errorOnOpen))
 	}
+	las = nil //TODO уверен это грубая ошибка, Logger хранит в себе las НАФИГА мы его тут убиваем...
+	return lasLog
+}
 
+// LasDeepCheck - read and check las file, curve name checked to mnemonic, return object with all warnings
+// считывает файл и собирает все сообщения в один объект
+func LasDeepCheck(filename, mnemonicFile, vocdicFile string) (*Logger, error) {
+	lasLog := LasCheck(filename)
+	//TODO здесь засада, LasCheck сам создаёт и читает las, более того он вообще-то его в себе хранит,
+	//     НО в данном случае нам СТОИТ??? или НЕ СТОИТ??? об этом забывать
+	//     мы ведь вынуждены всё равно прочитать ещё раз las файл
+	las := NewLas()
+	Mnemonic, err := LoadStdMnemonicDic(fp.Join(mnemonicFile))
+	if err != nil {
+		return nil, err
+	}
+	VocDic, err := LoadStdVocabularyDictionary(fp.Join(vocdicFile))
+	if err != nil {
+		return nil, err
+	}
+	las.LogDic = &Mnemonic
+	las.VocDic = &VocDic
+	las.Open(filename) //читаем второй раз, когда подключены словари, то чтение идёт иначе )))
 	for k, v := range las.Logs {
 		if len(v.Mnemonic) == 0 { //v.Mnemonic содержит автоопределённую стандартную мнемонику, если она пустая, значит пропущена, помечаем **
-			LasLog.msgCurve = append(LasLog.msgCurve, fmt.Sprintf("*input log: %s \t internal: %s \t mnemonic:%s*\n", v.IName, k, v.Mnemonic))
-			LasLog.missMnemonic[v.IName] = v.IName
+			lasLog.msgCurve = append(lasLog.msgCurve, fmt.Sprintf("*input log: %s \t internal: %s \t mnemonic:%s*\n", v.IName, k, v.Mnemonic))
+			lasLog.missMnemonic[v.IName] = v.IName
 		} else {
-			LasLog.msgCurve = append(LasLog.msgCurve, fmt.Sprintf("input log: %s \t internal: %s \t mnemonic: %s\n", v.IName, k, v.Mnemonic))
+			lasLog.msgCurve = append(lasLog.msgCurve, fmt.Sprintf("input log: %s \t internal: %s \t mnemonic: %s\n", v.IName, k, v.Mnemonic))
 		}
 	}
-
 	las = nil
-	return LasLog
+	return lasLog, nil
 }

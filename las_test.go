@@ -131,33 +131,6 @@ func TestLoadLasHeader(t *testing.T) {
 	assert.Nil(t, las)
 }
 
-/*
-func TestLoadHeaderUtf(t *testing.T) {
-	las := NewLas()
-	las.iCodepage, _ = cpd.FileCodePageDetect(fp.Join("data/encodings_utf8wbom.las"))
-	las.LoadHeader(fp.Join("data/encodings_utf8wbom.las"))
-	assert.Equal(t, 1.2, las.Ver, fmt.Sprintf("<LoadHeader> file 'encodings_utf8wbom.las' readed VER: %f, expected %f", las.Ver, 1.2))
-	assert.Equal(t, "NO", las.Wrap, fmt.Sprintf("<LoadHeader> file 'encodings_utf8wbom.las' readed WRAP: %s, expected %s", las.Wrap, "NO"))
-	assert.Equal(t, 1670.0, las.Strt, fmt.Sprintf("<LoadHeader> file 'encodings_utf8wbom.las' readed STRT: %f, expected %f", las.Strt, 1670.0))
-	assert.Equal(t, 1660.0, las.Stop, fmt.Sprintf("<LoadHeader> file 'encodings_utf8wbom.las' readed STOP: %f, expected %f", las.Stop, 1660.0))
-	assert.Equal(t, -0.1250, las.Step, fmt.Sprintf("<LoadHeader> file 'encodings_utf8wbom.las' readed STEP: %f, expected %f", las.Step, -0.1250))
-	assert.Equal(t, -999.250, las.Null, fmt.Sprintf("<LoadHeader> file 'encodings_utf8wbom.las' readed NULL: %f, expected %f", las.Null, -999.250))
-	assert.Equal(t, "Скважина ºᶟᵌᴬń #12", las.Well, fmt.Sprintf("<LoadHeader> file 'encodings_utf8wbom.las' readed WELL: %s, expected %s", las.Well, "Скважина ºᶟᵌᴬń #12"))
-}
-
-func TestLoadHeaderUtf16le(t *testing.T) {
-	las := NewLas()
-	las.iCodepage, _ = cpd.FileCodePageDetect(fp.Join("data/encodings_utf16lebom.las"))
-	las.LoadHeader(fp.Join("data/encodings_utf16lebom.las"))
-	assert.Equal(t, 1.2, las.Ver, fmt.Sprintf("file 'encodings_utf16lebom.las' readed VER: %f, expected %f", las.Ver, 1.2))
-	assert.Equal(t, "NO", las.Wrap, fmt.Sprintf("file 'encodings_utf16lebom.las' readed WRAP: %s, expected %s", las.Wrap, "NO"))
-	assert.Equal(t, 1670.0, las.Strt, fmt.Sprintf("file 'encodings_utf16lebom.las' readed STRT: %f, expected %f", las.Strt, 1670.0))
-	assert.Equal(t, 1660.0, las.Stop, fmt.Sprintf("file 'encodings_utf16lebom.las' readed STOP: %f, expected %f", las.Stop, 1660.0))
-	assert.Equal(t, -0.1250, las.Step, fmt.Sprintf("file 'encodings_utf16lebom.las' readed STEP: %f, expected %f", las.Step, -0.1250))
-	assert.Equal(t, -999.25, las.Null, fmt.Sprintf("file 'encodings_utf16lebom.las' readed NULL: %f, expected %f", las.Null, -999.25))
-	assert.Equal(t, "ºᶟᵌᴬń BLOCK", las.Well, fmt.Sprintf("file 'encodings_utf16lebom.las' readed WELL: %s, expected %s", las.Well, "ºᶟᵌᴬń BLOCK"))
-}*/
-
 func TestLasSaveWarning(t *testing.T) {
 	las := NewLas()
 	las.Open(fp.Join("data/more_20_warnings.las"))
@@ -176,9 +149,9 @@ type tGetDataStep struct {
 }
 
 var dGetDataStep = []tGetDataStep{
-	{fp.Join("data/step-2-data-without-step-case1.las"), -32768.000},
-	{fp.Join("data/step-2-data-without-step-case2.las"), -32768.000},
-	{fp.Join("data/no-data-section.las"), -32768.000},
+	{fp.Join("data/step-2-data-without-step-case1.las"), 0.0},
+	{fp.Join("data/step-2-data-without-step-case2.las"), 0.0},
+	{fp.Join("data/no-data-section.las"), 0.0},
 	{fp.Join("data/step-1-normal-case.las"), 1.0},
 }
 
@@ -242,8 +215,8 @@ type tSaveLas struct {
 }
 
 var dSaveLas = []tSaveLas{
-	{fp.Join("test_files/~1251.las"), cpd.CP1251, -99.99, 0.201, 10.01, 0.01, "Примерная-101 / бис", -0.1},
 	//        filename                codepage    null    strt   stop  step   well name           new null
+	{fp.Join("test_files/~1251.las"), cpd.CP1251, -99.99, 0.201, 10.01, 0.01, "Примерная-101 / бис", -0.1},
 	{fp.Join("test_files/~koi8.las"), cpd.KOI8R, -99.0, 0.2, 2.0, -0.1, "Примерная-1001 /\"бис\"", -55.55},
 	{fp.Join("test_files/~866.las"), cpd.CP866, -909.0, 2.21, 12.1, -0.1, "Примерная-101 /\"бис\"", 5555.55},
 	{fp.Join("test_files/~utf-8.las"), cpd.UTF8, -999.99, 20.21, 1.0, -0.01, "Примерная-101А / бис", -999.25},
@@ -275,6 +248,71 @@ func TestSetNullOnEmptyLas(t *testing.T) {
 	las := NewLas()
 	las.SetNull(-1000)
 	assert.Equal(t, -1000.0, las.Null)
+}
+
+func TestLasIsEmpty(t *testing.T) {
+	las := Las{}
+	assert.True(t, las.IsEmpty())
+	las = *NewLas()
+	assert.False(t, las.IsEmpty())
+}
+
+type tStdCheckLas struct {
+	cp       cpd.IDCodePage
+	null     float64
+	strt     float64
+	stop     float64
+	step     float64
+	well     string
+	testsRes [4]bool // stdCheck contain 4 test
+}
+
+var dCheckLas = []tStdCheckLas{
+	//codepage   null strt   stop  step   well name             проверки  step  null  strt   well
+	{cpd.CP1251, 0.0, 0.201, 10.01, 0.01, "Примерная-101 / бис", [4]bool{true, false, true, true}},
+	{cpd.CP1251, -99.99, 0.201, 10.01, 0.0, "Примерная-101 / бис", [4]bool{false, true, true, true}},
+	{cpd.KOI8R, 0.0, 0.2, 2.0, 0.0, "Примерная-1001 /\"бис\"", [4]bool{false, false, true, true}},
+	{cpd.CP866, 0.0, 0.21, 0.21, 0.1, "Примерная-101 /\"бис\"", [4]bool{true, false, false, true}},
+	{cpd.UTF8, 0.0, 0.2, 0.2, 0.0, "", [4]bool{false, false, false, false}},
+	{cpd.UTF16LE, 0.0, 20.2, 1.0, -0.0, "", [4]bool{false, false, true, false}},
+}
+
+func TestLasChecker(t *testing.T) {
+	chkr := NewEmptyChecker()
+	assert.NotEqual(t, 0, len(chkr))
+	chkr = NewStdChecker() //стандартная проверка на step=0, null=0, strt=stop, well=""
+	for _, tmp := range dCheckLas {
+		las := makeSampleLas(tmp.cp, tmp.null, tmp.strt, tmp.stop, tmp.step, tmp.well)
+		assert.NotEqual(t, 0, len(chkr))
+		for i, chk := range chkr {
+			checkRes := chk.do(chk, las)
+			assert.Equal(t, tmp.testsRes[i], checkRes.res)
+		}
+	}
+}
+
+func TestLasChecker2(t *testing.T) {
+	stdChecker := NewStdChecker()
+
+	tmp := dCheckLas[0] // в данных одна ошиба, NULL=0
+	las := makeSampleLas(tmp.cp, tmp.null, tmp.strt, tmp.stop, tmp.step, tmp.well)
+	res := stdChecker.check(las)
+	assert.Equal(t, 1, len(res))
+	assert.Equal(t, res[0].name, "NullNot0")
+	assert.True(t, res.nullWrong())
+	assert.False(t, res.stepWrong())
+
+	tmp = dCheckLas[4] // все 4 ошибки
+	las = makeSampleLas(tmp.cp, tmp.null, tmp.strt, tmp.stop, tmp.step, tmp.well)
+	res = stdChecker.check(las)
+	assert.Equal(t, 4, len(res))
+	assert.Equal(t, res[0].name, "StepNot0")
+	assert.Equal(t, res[3].message, "WELL == ''")
+	assert.True(t, res.stepWrong())
+
+	las = makeSampleLas(cpd.CP866, -999.25, 0, 100, 0.2, "well") //правильные данные
+	res = stdChecker.check(las)                                  //StdChecker должен вернуть пустой слайс
+	assert.Equal(t, 0, len(res))
 }
 
 func BenchmarkSave1(b *testing.B) {

@@ -1,3 +1,6 @@
+// (c) softland 2020
+// softlandia@gmail.com
+
 package glasio
 
 import (
@@ -72,6 +75,7 @@ type LasWellInfo struct {
 // at read file always code page converted to UTF
 // at save file code page converted to specifyed in Las.toCodePage
 //TODO add pointer to cfg
+//TODO при создании объекта las есть возможность указать кодировку записи, нужна возможность указать явно кодировку чтения
 type Las struct {
 	FileName        string             //file name from load
 	File            *os.File           //the file from which we are reading
@@ -96,24 +100,23 @@ type Las struct {
 	currentLine     int                //index of current line in readed file
 	maxWarningCount int                //default maximum warning count
 	stdNull         float64            //default null value
-	//iCodepage       cpd.IDCodePage     //codepage input file - autodetected
 }
 
 // GetStepFromData - return step from data section
 // read 2 line from section ~A and determine step
 // close file
-// return o.Null if error occure
+// return Null if error occure
 // если делать функцией, не методом, то придётся NULL передавать. а оно надо вообще
-func (o *Las) GetStepFromData() float64 {
-	iFile, err := os.Open(o.FileName)
+func (las *Las) GetStepFromData() float64 {
+	iFile, err := os.Open(las.FileName)
 	if err != nil {
-		return o.Null
+		return las.Null
 	}
 	defer iFile.Close()
 
-	_, iScanner, err := xlib.SeekFileStop(o.FileName, "~A")
+	_, iScanner, err := xlib.SeekFileStop(las.FileName, "~A")
 	if (err != nil) || (iScanner == nil) {
-		return o.Null
+		return las.Null
 	}
 
 	s := ""
@@ -131,7 +134,7 @@ func (o *Las) GetStepFromData() float64 {
 		}
 		dept1, err = strconv.ParseFloat(s[:k], 64)
 		if err != nil {
-			return o.Null
+			return las.Null
 		}
 		j++
 		if j == 2 {
@@ -140,30 +143,30 @@ func (o *Las) GetStepFromData() float64 {
 		dept2 = dept1
 	}
 	//если мы попали сюда, то всё грусно, в файле после ~A не нашлось двух строчек с данными... или пустые строчки или комменты
-	// TODO последняя строка "return o.Null" не обрабатывается в тесте
-	return o.Null
+	// TODO последняя строка "return las.Null" не обрабатывается в тесте
+	return las.Null
 }
 
-func (o *Las) setStep(h float64) {
-	o.Step = h
+func (las *Las) setStep(h float64) {
+	las.Step = h
 }
 
 //SetNull - change parameter NULL in WELL INFO section and in all logs
-func (o *Las) SetNull(aNull float64) error {
-	for _, l := range o.Logs { //loop by logs
+func (las *Las) SetNull(aNull float64) error {
+	for _, l := range las.Logs { //loop by logs
 		for i := range l.log { //loop by dept step
-			if l.log[i] == o.Null {
+			if l.log[i] == las.Null {
 				l.log[i] = aNull
 			}
 		}
 	}
-	o.Null = aNull
+	las.Null = aNull
 	return nil
 }
 
 //logByIndex - return log from map by Index
-func (o *Las) logByIndex(i int) (*LasCurve, error) {
-	for _, v := range o.Logs {
+func (las *Las) logByIndex(i int) (*LasCurve, error) {
+	for _, v := range las.Logs {
 		if v.Index == i {
 			return &v, nil
 		}
@@ -205,6 +208,7 @@ func NewLas(outputCP ...cpd.IDCodePage) *Las {
 	return las
 }
 
+/*
 // NewLasPar - create new object with parameters
 func NewLasPar(lasInfo LasWellInfo) *Las {
 	las := new(Las)
@@ -225,13 +229,14 @@ func NewLasPar(lasInfo LasWellInfo) *Las {
 	las.iDuplicate = 0
 	return las
 }
+*/
 
-//analize first char after ~
-//~V - section vertion
-//~W - well info section
-//~C - curve info section
-//~A - data section
-func (o *Las) selectSection(r rune) int {
+// selectSection - analize first char after ~
+// ~V - section vertion
+// ~W - well info section
+// ~C - curve info section
+// ~A - data section
+func (las *Las) selectSection(r rune) int {
 	switch r {
 	case 86: //V
 		return lasSecVertion //version section
@@ -302,56 +307,56 @@ func (hc *HeaderCheckRes) addNullWarning() {
 // - double error on STEP parameter
 // - las file is WRAP == ON
 // - Curve section not exist
-func (o *Las) checkHeader() (HeaderCheckRes, error) {
+func (las *Las) checkHeader() (HeaderCheckRes, error) {
 	res := make(HeaderCheckRes, 0)
-	if o.Null == 0.0 {
+	if las.Null == 0.0 {
 		res.addNullWarning()
-		o.addWarning(TWarning{directOnRead, lasSecWellInfo, -1, fmt.Sprintf("NULL parameter equal 0, replace to %4.3f", o.Null)})
+		las.addWarning(TWarning{directOnRead, lasSecWellInfo, -1, fmt.Sprintf("NULL parameter equal 0, replace to %4.3f", las.Null)})
 	}
-	if o.Step == 0.0 {
+	if las.Step == 0.0 {
 		res.addStepWarning()
-		o.addWarning(TWarning{directOnRead, lasSecWellInfo, -1, fmt.Sprintf("STEP parameter equal 0, replace to %4.3f", o.Step)})
+		las.addWarning(TWarning{directOnRead, lasSecWellInfo, -1, fmt.Sprintf("STEP parameter equal 0, replace to %4.3f", las.Step)})
 	}
-	if math.Abs(o.Stop-o.Strt) < 0.1 {
-		o.addWarning(TWarning{directOnRead, lasSecWellInfo, -1, fmt.Sprintf("invalid STRT: %4.3f or STOP: %4.3f, will be replace to actually", o.Strt, o.Stop)})
+	if math.Abs(las.Stop-las.Strt) < 0.1 {
+		las.addWarning(TWarning{directOnRead, lasSecWellInfo, -1, fmt.Sprintf("invalid STRT: %4.3f or STOP: %4.3f, will be replace to actually", las.Strt, las.Stop)})
 	}
-	if o.IsWraped() {
-		o.addWarning(TWarning{directOnRead, lasSecData, -1, "WRAP = YES, file ignored"})
+	if las.IsWraped() {
+		las.addWarning(TWarning{directOnRead, lasSecData, -1, "WRAP = YES, file ignored"})
 		return res, fmt.Errorf("Wrapped files not support") //return 0, nil
 	}
-	if len(o.Logs) <= 0 {
-		o.addWarning(TWarning{directOnRead, lasSecData, -1, "section ~Curve not exist, file ignored"})
+	if len(las.Logs) <= 0 {
+		las.addWarning(TWarning{directOnRead, lasSecData, -1, "section ~Curve not exist, file ignored"})
 		return res, fmt.Errorf("Curve section not exist") //return 0, nil
 	}
 	return res, nil
 }
 
 // IsWraped - return true if WRAP == YES
-func (o *Las) IsWraped() bool {
-	return strings.Contains(strings.ToUpper(o.Wrap), "Y") //(strings.Index(strings.ToUpper(o.Wrap), "Y") >= 0)
+func (las *Las) IsWraped() bool {
+	return strings.Contains(strings.ToUpper(las.Wrap), "Y") //(strings.Index(strings.ToUpper(o.Wrap), "Y") >= 0)
 }
 
 // SaveWarning - save to file all warning
-func (o *Las) SaveWarning(fileName string) error {
-	if o.Warnings.Count() == 0 {
+func (las *Las) SaveWarning(fileName string) error {
+	if las.Warnings.Count() == 0 {
 		return nil
 	}
 	oFile, err := os.Create(fileName)
 	if err != nil {
 		return err
 	}
-	o.SaveWarningToFile(oFile)
+	las.SaveWarningToFile(oFile)
 	oFile.Close()
 	return nil
 }
 
 // SaveWarningToWriter - store all warning to writer, return count lines writed to
-func (o *Las) SaveWarningToWriter(writer *bufio.Writer) int {
-	n := o.Warnings.Count()
+func (las *Las) SaveWarningToWriter(writer *bufio.Writer) int {
+	n := las.Warnings.Count()
 	if n == 0 {
 		return 0
 	}
-	for _, w := range o.Warnings {
+	for _, w := range las.Warnings {
 		writer.WriteString(w.String())
 		writer.WriteString("\n")
 	}
@@ -359,24 +364,24 @@ func (o *Las) SaveWarningToWriter(writer *bufio.Writer) int {
 }
 
 // SaveWarningToFile - store all warning to file, file not close. return count warning writed
-func (o *Las) SaveWarningToFile(oFile *os.File) int {
+func (las *Las) SaveWarningToFile(oFile *os.File) int {
 	if oFile == nil {
 		return 0
 	}
-	if o.Warnings.Count() == 0 {
+	if las.Warnings.Count() == 0 {
 		return 0
 	}
-	oFile.WriteString("**file: " + o.FileName + "**\n")
-	n := o.Warnings.SaveWarningToFile(oFile)
+	oFile.WriteString("**file: " + las.FileName + "**\n")
+	n := las.Warnings.SaveWarningToFile(oFile)
 	oFile.WriteString("\n")
 	return n
 }
 
-func (o *Las) addWarning(w TWarning) {
-	if o.Warnings.Count() < o.maxWarningCount {
-		o.Warnings = append(o.Warnings, w)
-		if o.Warnings.Count() == o.maxWarningCount {
-			o.Warnings = append(o.Warnings, TWarning{0, 0, 0, "*maximum count* of warning reached, change parameter 'maxWarningCount' in 'glas.ini'"})
+func (las *Las) addWarning(w TWarning) {
+	if las.Warnings.Count() < las.maxWarningCount {
+		las.Warnings = append(las.Warnings, w)
+		if las.Warnings.Count() == las.maxWarningCount {
+			las.Warnings = append(las.Warnings, TWarning{0, 0, 0, "*maximum count* of warning reached, change parameter 'maxWarningCount' in 'glas.ini'"})
 		}
 	}
 }
@@ -384,15 +389,15 @@ func (o *Las) addWarning(w TWarning) {
 // GetMnemonic - return Mnemonic from dictionary by Log Name,
 // if Mnemonic not found return ""
 // if Dictionary is nil, then return ""
-func (o *Las) GetMnemonic(logName string) string {
-	if (o.LogDic == nil) || (o.VocDic == nil) {
+func (las *Las) GetMnemonic(logName string) string {
+	if (las.LogDic == nil) || (las.VocDic == nil) {
 		return "" //"-"
 	}
-	_, ok := (*o.LogDic)[logName]
+	_, ok := (*las.LogDic)[logName]
 	if ok { //GOOD - название каротажа равно мнемонике
 		return logName
 	}
-	v, ok := (*o.VocDic)[logName]
+	v, ok := (*las.VocDic)[logName]
 	if ok { //POOR - название загружаемого каротажа найдено в словаре подстановок, мнемоника найдена
 		return v
 	}
@@ -405,8 +410,58 @@ func (o *Las) GetMnemonic(logName string) string {
 // - file cannot be decoded to UTF-8
 // - las is wrapped
 // - las file not contain Curve section
-func (o *Las) Open(fileName string) (int, error) {
-	//TODO при создании объекта las есть возможность указать кодировку записи, нужна возможность указать явно кодировку чтения
+func (las *Las) Open(fileName string) (int, error) {
+	var err error
+	las.File, err = os.Open(fileName)
+	if err != nil {
+		return 0, err
+	}
+	defer las.File.Close()
+	las.FileName = fileName
+	//create and store Reader, this reader decode to UTF-8
+	las.Reader, err = cpd.NewReader(las.File)
+	if err != nil {
+		return 0, err
+	}
+	las.scanner = bufio.NewScanner(las.Reader)
+	las.currentLine = 0
+	las.LoadHeader()
+	// проверки на фатальные ошибки
+	wrongChecker := NewWrongChecker()
+	r := wrongChecker.check(las)
+	if r.wrapWrong() {
+		las.addWarning(TWarning{directOnRead, lasSecData, -1, "WRAP = YES, file ignored"})
+		return 0, fmt.Errorf("Wrapped files not support")
+	}
+	if r.curvesWrong() {
+		las.addWarning(TWarning{directOnRead, lasSecData, -1, "section ~Curve not exist, file ignored"})
+		return 0, fmt.Errorf("Curve section not exist")
+	}
+	// фатальные ошибки в заголовке исключены
+	// делаем стандартные проверки заголовка
+	stdChecker := NewStdChecker()
+	r = stdChecker.check(las)
+	if r.nullWrong() {
+		las.addWarning(TWarning{directOnRead, lasSecWellInfo, -1, fmt.Sprintf("NULL parameter equal 0, replace to %4.3f", las.Null)})
+		las.SetNull(las.stdNull)
+	}
+	if r.strtStopWrong() {
+		las.addWarning(TWarning{directOnRead, lasSecWellInfo, -1, fmt.Sprintf("invalid STRT: %4.3f == STOP: %4.3f, will be replace to actually", las.Strt, las.Stop)})
+	}
+
+	if r.stepWrong() {
+		las.addWarning(TWarning{directOnRead, lasSecWellInfo, -1, fmt.Sprintf("STEP parameter equal 0, replace to %4.3f", las.Step)})
+		h := las.GetStepFromData() // return o.Null if cannot calculate step from data
+		if h == las.Null {
+			return 0, errors.New("invalid STEP parameter and invalid step in data")
+		}
+		las.setStep(h)
+	}
+	return las.ReadDataSec(fileName)
+}
+
+/*
+func (o *Las) open1(fileName string) (int, error) {
 	var err error
 	o.File, err = os.Open(fileName)
 	if err != nil {
@@ -422,12 +477,12 @@ func (o *Las) Open(fileName string) (int, error) {
 	o.scanner = bufio.NewScanner(o.Reader)
 	o.currentLine = 0
 	o.LoadHeader()
+
 	// проверка корректности данных секции WELL INFO перез загрузкой данных
 	res, err := o.checkHeader() // res содержит несколько сообщений связанных с корректностью заголовка las файла
 	if err != nil {
-		return 0, err // дальше читать файл смысла нет, или с файл переносами или нет секции Curve ...
+		return 0, err // дальше читать файл смысла нет, или файл с переносами или нет секции Curve ...
 	}
-	err = nil
 	// обрабатываем изменение параметров las файла по результатам чтения заголовка
 	if res.needUpdateNull() {
 		o.SetNull(o.stdNull)
@@ -441,6 +496,7 @@ func (o *Las) Open(fileName string) (int, error) {
 	}
 	return o.ReadDataSec(fileName)
 }
+*/
 
 /*LoadHeader - read las file and load all section before ~A
    secName: 0 - empty, 1 - Version, 2 - Well info, 3 - Curve info, 4 - A data
@@ -451,25 +507,25 @@ func (o *Las) Open(fileName string) (int, error) {
 5. читаем одну строку (это один параметер из известной нам секции)
    Пока ошибку всегда возвращает nil, причин возвращать другое значение пока нет.
 */
-func (o *Las) LoadHeader() error {
+func (las *Las) LoadHeader() error {
 	s := ""
 	var err error
 	secNum := 0
-	for i := 0; o.scanner.Scan(); i++ {
-		s = strings.TrimSpace(o.scanner.Text())
-		o.currentLine++
+	for i := 0; las.scanner.Scan(); i++ {
+		s = strings.TrimSpace(las.scanner.Text())
+		las.currentLine++
 		if isIgnoredLine(s) {
 			continue
 		}
 		if s[0] == '~' { //start new section
-			secNum = o.selectSection(rune(s[1]))
+			secNum = las.selectSection(rune(s[1]))
 			if secNum == lasSecData {
 				break // dAta section read after //exit from for
 			}
 		} else {
-			err = o.ReadParameter(s, secNum) //if not comment, not empty and not new section => parameter, read it
+			err = las.ReadParameter(s, secNum) //if not comment, not empty and not new section => parameter, read it
 			if err != nil {
-				o.addWarning(TWarning{directOnRead, secNum, -1, fmt.Sprintf("while process parameter: '%s' occure error: %v", s, err)})
+				las.addWarning(TWarning{directOnRead, secNum, -1, fmt.Sprintf("while process parameter: '%s' occure error: %v", s, err)})
 			}
 		}
 	}
@@ -477,53 +533,53 @@ func (o *Las) LoadHeader() error {
 }
 
 // ReadParameter - read one parameter
-func (o *Las) ReadParameter(s string, secNum int) error {
+func (las *Las) ReadParameter(s string, secNum int) error {
 	switch secNum {
 	case lasSecVertion:
-		return o.readVersionParam(s)
+		return las.readVersionParam(s)
 	case lasSecWellInfo:
-		return o.ReadWellParam(s)
+		return las.ReadWellParam(s)
 	case lasSecCurInfo:
-		return o.readCurveParam(s)
+		return las.readCurveParam(s)
 	}
 	return nil
 }
 
-func (o *Las) readVersionParam(s string) error {
+func (las *Las) readVersionParam(s string) error {
 	var err error
 	p := NewLasParam(s)
 	switch p.Name {
 	case "VERS":
-		o.Ver, err = strconv.ParseFloat(p.Val, 64)
+		las.Ver, err = strconv.ParseFloat(p.Val, 64)
 	case "WRAP":
-		o.Wrap = p.Val
+		las.Wrap = p.Val
 	}
 	return err
 }
 
 //ReadWellParam - read parameter from WELL section
-func (o *Las) ReadWellParam(s string) error {
+func (las *Las) ReadWellParam(s string) error {
 	var err error
 	p := NewLasParam(s)
 	switch p.Name {
 	case "STRT":
-		o.Strt, err = strconv.ParseFloat(p.Val, 64)
+		las.Strt, err = strconv.ParseFloat(p.Val, 64)
 	case "STOP":
-		o.Stop, err = strconv.ParseFloat(p.Val, 64)
+		las.Stop, err = strconv.ParseFloat(p.Val, 64)
 	case "STEP":
-		o.Step, err = strconv.ParseFloat(p.Val, 64)
+		las.Step, err = strconv.ParseFloat(p.Val, 64)
 	case "NULL":
-		o.Null, err = strconv.ParseFloat(p.Val, 64)
+		las.Null, err = strconv.ParseFloat(p.Val, 64)
 	case "WELL":
-		if o.Ver < 2.0 {
-			o.Well = p.Desc
+		if las.Ver < 2.0 {
+			las.Well = p.Desc
 		} else {
-			//o.Well = p.Val
-			o.Well = wellNameFromParam(p)
+			//las.Well = p.Val
+			las.Well = wellNameFromParam(p)
 		}
 	}
 	if err != nil {
-		o.addWarning(TWarning{directOnRead, lasSecWellInfo, -1, fmt.Sprintf("detected param: %v, unit:%v, value: %v\n", p.Name, p.Unit, p.Val)})
+		las.addWarning(TWarning{directOnRead, lasSecWellInfo, -1, fmt.Sprintf("detected param: %v, unit:%v, value: %v\n", p.Name, p.Unit, p.Val)})
 	}
 	return err
 }
@@ -532,11 +588,11 @@ func (o *Las) ReadWellParam(s string) error {
 //if input name unique, return input name
 //if input name not unique, return input name + index duplicate
 //index duplicate - Las field, increase
-func (o *Las) ChangeDuplicateLogName(name string) string {
+func (las *Las) ChangeDuplicateLogName(name string) string {
 	s := ""
-	if _, ok := o.Logs[name]; ok {
-		o.iDuplicate++
-		s = fmt.Sprintf("%v", o.iDuplicate)
+	if _, ok := las.Logs[name]; ok {
+		las.iDuplicate++
+		s = fmt.Sprintf("%v", las.iDuplicate)
 		name += s
 	}
 	return name
@@ -548,69 +604,69 @@ func (o *Las) ChangeDuplicateLogName(name string) string {
 //IName    - имя каротажа в исходном файле, может повторятся
 //Name     - ключ в map хранилище, повторятся не может. если в исходном есть повторение, то Name строится добавлением к IName индекса
 //Mnemonic - мнемоника, берётся из словаря, если в словаре не найдено, то ""
-func (o *Las) readCurveParam(s string) error {
+func (las *Las) readCurveParam(s string) error {
 	l := NewLasCurve(s)
-	l.Init(len(o.Logs), o.GetMnemonic(l.Name), o.ChangeDuplicateLogName(l.Name), o.GetExpectedPointsCount())
-	o.Logs[l.Name] = l //добавление в хранилище кривой каротажа с колонкой глубин
+	l.Init(len(las.Logs), las.GetMnemonic(l.Name), las.ChangeDuplicateLogName(l.Name), las.GetExpectedPointsCount())
+	las.Logs[l.Name] = l //добавление в хранилище кривой каротажа с колонкой глубин
 	return nil
 }
 
 //GetExpectedPointsCount - оценка количества точек по параметрам STEP, STRT, STOP
-func (o *Las) GetExpectedPointsCount() int {
+func (las *Las) GetExpectedPointsCount() int {
 	var m int
 	//TODO нужно обработать все случаи
-	if o.Step == 0.0 {
-		return o.ePoints
+	if las.Step == 0.0 {
+		return las.ePoints
 	}
-	if math.Abs(o.Stop) > math.Abs(o.Strt) {
-		m = int((o.Stop-o.Strt)/o.Step) + 2
+	if math.Abs(las.Stop) > math.Abs(las.Strt) {
+		m = int((las.Stop-las.Strt)/las.Step) + 2
 	} else {
-		m = int((o.Strt-o.Stop)/o.Step) + 2
+		m = int((las.Strt-las.Stop)/las.Step) + 2
 	}
 	if m < 0 {
 		m = -m
 	}
 	if m == 0 {
-		return o.ePoints
+		return las.ePoints
 	}
 	return m
 }
 
 //expandDept - if actually data points exceeds
-func (o *Las) expandDept(d *LasCurve) {
+func (las *Las) expandDept(d *LasCurve) {
 	//actual number of points more then expected
-	o.addWarning(TWarning{directOnRead, lasSecData, o.currentLine, "actual number of data lines more than expected, check: STRT, STOP, STEP"})
-	o.addWarning(TWarning{directOnRead, lasSecData, o.currentLine, "expand number of points"})
+	las.addWarning(TWarning{directOnRead, lasSecData, las.currentLine, "actual number of data lines more than expected, check: STRT, STOP, STEP"})
+	las.addWarning(TWarning{directOnRead, lasSecData, las.currentLine, "expand number of points"})
 	//ожидаем удвоения данных
-	o.ePoints *= 2
+	las.ePoints *= 2
 	//expand first log - dept
-	newDept := make([]float64, o.ePoints)
+	newDept := make([]float64, las.ePoints)
 	copy(newDept, d.dept)
 	d.dept = newDept
 
-	newLog := make([]float64, o.ePoints)
+	newLog := make([]float64, las.ePoints)
 	copy(newLog, d.dept)
 	d.log = newLog
-	o.Logs[d.Name] = *d
+	las.Logs[d.Name] = *d
 
 	//loop over other logs
-	n := len(o.Logs)
+	n := len(las.Logs)
 	var l *LasCurve
 	for j := 1; j < n; j++ {
-		l, _ = o.logByIndex(j)
-		newDept := make([]float64, o.ePoints)
+		l, _ = las.logByIndex(j)
+		newDept := make([]float64, las.ePoints)
 		copy(newDept, l.dept)
 		l.dept = newDept
 
-		newLog := make([]float64, o.ePoints)
+		newLog := make([]float64, las.ePoints)
 		copy(newLog, l.log)
 		l.log = newLog
-		o.Logs[l.Name] = *l
+		las.Logs[l.Name] = *l
 	}
 }
 
 // ReadDataSec - read section of data
-func (o *Las) ReadDataSec(fileName string) (int, error) {
+func (las *Las) ReadDataSec(fileName string) (int, error) {
 	var (
 		v    float64
 		err  error
@@ -621,45 +677,49 @@ func (o *Las) ReadDataSec(fileName string) (int, error) {
 	)
 
 	//исходя из параметров STRT, STOP и STEP определяем ожидаемое количество строк данных
-	o.ePoints = o.GetExpectedPointsCount()
+	las.ePoints = las.GetExpectedPointsCount()
 	//o.currentLine++
-	n := len(o.Logs)       //количество каротажей, столько колонок данных ожидаем
-	d, _ = o.logByIndex(0) //dept log
+	n := len(las.Logs)       //количество каротажей, столько колонок данных ожидаем
+	d, _ = las.logByIndex(0) //dept log
 	s := ""
-	for i = 0; o.scanner.Scan(); i++ {
-		o.currentLine++
-		if i == o.ePoints {
-			o.expandDept(d)
+	for i = 0; las.scanner.Scan(); i++ {
+		las.currentLine++
+		if i == las.ePoints {
+			las.expandDept(d)
 		}
-		s = strings.TrimSpace(o.scanner.Text())
+		s = strings.TrimSpace(las.scanner.Text())
+		// i счётчик не строк, а фактически считанных данных - счётчик добавлений в слайсы данных
+		//TODO возможно следует завести отдельный счётчик и оставить в покое счётчик цикла
 		if isIgnoredLine(s) {
 			i--
 			continue
 		}
 		//first column is DEPT
-		k := strings.IndexRune(s, ' ')
-		if k < 0 { //line must have n+1 column and n separated spaces block (+1 becouse first column DEPT)
-			o.addWarning(TWarning{directOnRead, lasSecData, o.currentLine, fmt.Sprintf("line: %d is empty, ignore", o.currentLine)})
+		k := strings.IndexRune(s, ' ') //TODO вероятно получим ошибку если данные будут разделены не пробелом а табуляцией или ещё чем-то
+		if k < 0 {                     //line must have n+1 column and n separated spaces block (+1 becouse first column DEPT)
+			las.addWarning(TWarning{directOnRead, lasSecData, las.currentLine, fmt.Sprintf("line: %d is empty, ignore", las.currentLine)})
 			i--
 			continue
 		}
 		dept, err = strconv.ParseFloat(s[:k], 64)
 		if err != nil {
-			o.addWarning(TWarning{directOnRead, lasSecData, o.currentLine, fmt.Sprintf("first column '%s' not numeric, ignore", s[:k])})
+			las.addWarning(TWarning{directOnRead, lasSecData, las.currentLine, fmt.Sprintf("first column '%s' not numeric, ignore", s[:k])})
 			i--
 			continue
 		}
-
 		d.dept[i] = dept
+		// проверка шага у первых двух точек данных и сравнение с параметром step
+		//TODO данную проверку следует делать через Checker
 		if i > 1 {
-			if math.Pow(((dept-d.dept[i-1])-o.Step), 2) > 0.1 {
-				o.addWarning(TWarning{directOnRead, lasSecData, o.currentLine, fmt.Sprintf("actual step %5.2f ≠ global STEP %5.2f", (dept - d.dept[i-1]), o.Step)})
+			if math.Pow(((dept-d.dept[i-1])-las.Step), 2) > 0.1 {
+				las.addWarning(TWarning{directOnRead, lasSecData, las.currentLine, fmt.Sprintf("actual step %5.2f ≠ global STEP %5.2f", (dept - d.dept[i-1]), las.Step)})
 			}
 		}
+		// проверка шага между точками [i-1, i] и точками [i-2, i-1] обнаружение немонотонности колонки глубин
 		if i > 2 {
 			if math.Pow(((dept-d.dept[i-1])-(d.dept[i-1]-d.dept[i-2])), 2) > 0.1 {
-				o.addWarning(TWarning{directOnRead, lasSecData, o.currentLine, fmt.Sprintf("step %5.2f ≠ previously step %5.2f", (dept - d.dept[i-1]), (d.dept[i-1] - d.dept[i-2]))})
-				dept = d.dept[i-1] + o.Step
+				las.addWarning(TWarning{directOnRead, lasSecData, las.currentLine, fmt.Sprintf("step %5.2f ≠ previously step %5.2f", (dept - d.dept[i-1]), (d.dept[i-1] - d.dept[i-2]))})
+				dept = d.dept[i-1] + las.Step
 			}
 		}
 
@@ -669,22 +729,22 @@ func (o *Las) ReadDataSec(fileName string) (int, error) {
 			iSpace := strings.IndexRune(s, ' ')
 			switch iSpace {
 			case -1: //не все колонки прочитаны, а пробелов уже нет... пробуем игнорировать сроку заполняя оставшиеся каротажи NULLами
-				o.addWarning(TWarning{directOnRead, lasSecData, o.currentLine, "not all column readed, set log value to NULL"})
+				las.addWarning(TWarning{directOnRead, lasSecData, las.currentLine, "not all column readed, set log value to NULL"})
 			case 0:
-				v = o.Null
+				v = las.Null
 			case 1:
 				v, err = strconv.ParseFloat(s[:1], 64)
 			default:
 				v, err = strconv.ParseFloat(s[:iSpace], 64) //strconv.ParseFloat(s[:iSpace-1], 64)
 			}
 			if err != nil {
-				o.addWarning(TWarning{directOnRead, lasSecData, o.currentLine, fmt.Sprintf("can't convert string: '%s' to number, set to NULL", s[:iSpace-1])})
-				v = o.Null
+				las.addWarning(TWarning{directOnRead, lasSecData, las.currentLine, fmt.Sprintf("can't convert string: '%s' to number, set to NULL", s[:iSpace-1])})
+				v = las.Null
 			}
-			l, err = o.logByIndex(j)
+			l, err = las.logByIndex(j)
 			if err != nil {
-				o.nPoints = i
-				return i, errors.New("internal ERROR, func (o *Las) readDataSec()::o.logByIndex(j) return error")
+				las.nPoints = i
+				return i, errors.New("internal ERROR, func (las *Las) readDataSec()::las.logByIndex(j) return error")
 			}
 			l.dept[i] = dept
 			l.log[i] = v
@@ -693,20 +753,21 @@ func (o *Las) ReadDataSec(fileName string) (int, error) {
 		//остаток - последняя колонка
 		v, err = strconv.ParseFloat(s, 64)
 		if err != nil {
-			o.addWarning(TWarning{directOnRead, lasSecData, o.currentLine, "not all column readed, set log value to NULL"})
-			v = o.Null
+			las.addWarning(TWarning{directOnRead, lasSecData, las.currentLine, "not all column readed, set log value to NULL"})
+			v = las.Null
 		}
-		l, err = o.logByIndex(n - 1)
+		l, err = las.logByIndex(n - 1)
 		if err != nil {
-			o.nPoints = i
-			return i, errors.New("internal ERROR, func (o *Las) readDataSec()::o.logByIndex(j) return error on last column")
+			las.nPoints = i
+			return i, errors.New("internal ERROR, func (las *Las) readDataSec()::las.logByIndex(j) return error on last column")
 		}
 		l.dept[i] = dept
 		l.log[i] = v
 	}
 	//i - actually readed lines and add (.) to data array
 	//crop logs to actually len
-	err = o.setActuallyNumberPoints(i)
+	//TODO перенести в Open()
+	err = las.setActuallyNumberPoints(i)
 	if err != nil {
 		return 0, err
 	}
@@ -714,32 +775,32 @@ func (o *Las) ReadDataSec(fileName string) (int, error) {
 }
 
 // NumPoints - return actually number of points in data
-func (o *Las) NumPoints() int {
-	return o.nPoints
+func (las *Las) NumPoints() int {
+	return las.nPoints
 }
 
 //Dept - return slice of DEPT curve (first column)
-func (o *Las) Dept() []float64 {
-	d, err := o.logByIndex(0)
+func (las *Las) Dept() []float64 {
+	d, err := las.logByIndex(0)
 	if err != nil {
 		return nil
 	}
 	return d.dept
 }
 
-func (o *Las) setActuallyNumberPoints(numPoints int) error {
+func (las *Las) setActuallyNumberPoints(numPoints int) error {
 	if numPoints <= 0 {
-		o.nPoints = 0
-		return errors.New("internal ERROR, func (o *Las) setActuallyNumberPoints(), actually number of points <= 0")
+		las.nPoints = 0
+		return errors.New("internal ERROR, func (las *Las) setActuallyNumberPoints(), actually number of points <= 0")
 	}
-	if numPoints > len(o.Dept()) {
-		o.nPoints = 0
-		return errors.New("internal ERROR, func (o *Las) setActuallyNumberPoints(), actually number of points > then exist data")
+	if numPoints > len(las.Dept()) {
+		las.nPoints = 0
+		return errors.New("internal ERROR, func (las *Las) setActuallyNumberPoints(), actually number of points > then exist data")
 	}
-	for _, l := range o.Logs {
+	for _, l := range las.Logs {
 		l.SetLen(numPoints)
 	}
-	o.nPoints = numPoints
+	las.nPoints = numPoints
 	return nil
 }
 
@@ -821,15 +882,15 @@ func (o *Las) SaveToFile(fileName string, useMnemonic ...bool) error {
 //rewrite if file exist
 //if useMnemonic == true then on save using std mnemonic on ~Curve section
 //TODO las have field filename of readed las file, after save filename must update or not? warning occure on write for what file?
-func (o *Las) Save(fileName string, useMnemonic ...bool) error {
+func (las *Las) Save(fileName string, useMnemonic ...bool) error {
 	var (
 		err       error
 		bufToSave []byte
 	)
 	if len(useMnemonic) > 0 {
-		bufToSave, err = o.SaveToBuf(true)
+		bufToSave, err = las.SaveToBuf(true)
 	} else {
-		bufToSave, err = o.SaveToBuf(false)
+		bufToSave, err = las.SaveToBuf(false)
 	}
 	if err != nil {
 		return err
@@ -851,22 +912,22 @@ func (o *Las) Save(fileName string, useMnemonic ...bool) error {
 // rewrite if file exist
 // if useMnemonic == true then on save using std mnemonic on ~Curve section
 // ir return err != nil then fatal error, returned slice is not full corrected
-func (o *Las) SaveToBuf(useMnemonic bool) ([]byte, error) {
-	n := len(o.Logs) //log count
+func (las *Las) SaveToBuf(useMnemonic bool) ([]byte, error) {
+	n := len(las.Logs) //log count
 	if n <= 0 {
 		return nil, errors.New("logs not exist")
 	}
 	var err error
 	var b bytes.Buffer
 	fmt.Fprint(&b, _LasFirstLine)
-	fmt.Fprintf(&b, _LasVersion, o.Ver)
+	fmt.Fprintf(&b, _LasVersion, las.Ver)
 	fmt.Fprint(&b, _LasWrap)
 	fmt.Fprint(&b, _LasWellInfoSec)
-	fmt.Fprintf(&b, _LasStrt, o.Strt)
-	fmt.Fprintf(&b, _LasStop, o.Stop)
-	fmt.Fprintf(&b, _LasStep, o.Step)
-	fmt.Fprintf(&b, _LasNull, o.Null)
-	fmt.Fprintf(&b, _LasWell, o.Well)
+	fmt.Fprintf(&b, _LasStrt, las.Strt)
+	fmt.Fprintf(&b, _LasStop, las.Stop)
+	fmt.Fprintf(&b, _LasStep, las.Step)
+	fmt.Fprintf(&b, _LasNull, las.Null)
+	fmt.Fprintf(&b, _LasWell, las.Well)
 	fmt.Fprint(&b, _LasCurvSec)
 	fmt.Fprint(&b, _LasCurvDept)
 
@@ -874,7 +935,7 @@ func (o *Las) SaveToBuf(useMnemonic bool) ([]byte, error) {
 	sb.WriteString("# DEPT  |") //готовим строчку с названиями каротажей глубина всегда присутствует
 	var l *LasCurve
 	for i := 1; i < n; i++ { //Пишем названия каротажей
-		l, _ := o.logByIndex(i)
+		l, _ := las.logByIndex(i)
 		if useMnemonic {
 			if len(l.Mnemonic) > 0 {
 				l.Name = l.Mnemonic
@@ -888,20 +949,25 @@ func (o *Las) SaveToBuf(useMnemonic bool) ([]byte, error) {
 	fmt.Fprint(&b, _LasDataSec)
 	//write data
 	fmt.Fprintf(&b, "%s\n", sb.String())
-	dept, _ := o.logByIndex(0)
-	for i := 0; i < o.nPoints; i++ { //loop by dept (.)
+	dept, _ := las.logByIndex(0)
+	for i := 0; i < las.nPoints; i++ { //loop by dept (.)
 		fmt.Fprintf(&b, "%-9.3f ", dept.dept[i])
 		for j := 1; j < n; j++ { //loop by logs
-			l, err = o.logByIndex(j)
+			l, err = las.logByIndex(j)
 			if err != nil {
-				o.addWarning(TWarning{directOnWrite, lasSecData, i, "logByIndex() return error, log not found, panic"})
+				las.addWarning(TWarning{directOnWrite, lasSecData, i, "logByIndex() return error, log not found, panic"})
 				return nil, errors.New("logByIndex() return error, log not found, panic")
 			}
 			fmt.Fprintf(&b, "%-9.3f ", l.log[i])
 		}
 		fmt.Fprintln(&b)
 	}
-	r, _ := cpd.NewReaderTo(io.Reader(&b), o.oCodepage.String()) //ошибку не обрабатываем, допустимость oCodepage проверяем раньше, других причин нет
+	r, _ := cpd.NewReaderTo(io.Reader(&b), las.oCodepage.String()) //ошибку не обрабатываем, допустимость oCodepage проверяем раньше, других причин нет
 	bufToSave, _ := ioutil.ReadAll(r)
 	return bufToSave, nil
+}
+
+// IsEmpty - test to not initialize object
+func (las *Las) IsEmpty() bool {
+	return (las.Logs == nil)
 }
