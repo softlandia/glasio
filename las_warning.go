@@ -25,7 +25,7 @@ type TWarning struct {
 
 //String - return string with warning
 func (o TWarning) String() string {
-	return fmt.Sprintf("line: %d,\tdesc: %s", o.line, o.desc)
+	return fmt.Sprintf("line: %d,\t\"%s\"", o.line, o.desc)
 }
 
 // ToCsvString - return string with warning

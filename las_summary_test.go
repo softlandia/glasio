@@ -49,8 +49,8 @@ var dSummaryCheck = []tSummaryCheck{
 	{fp.Join("data/missing_null.las"), 1.2, "NO", 1670, 1660, -0.125, -999.25, "ANY ET AL OIL WELL #12", 8, 3, false},
 	{fp.Join("data/missing_vers.las"), 2.0, "NO", 1670, 1660, -0.125, -999.25, "WELL", 8, 3, false},
 	{fp.Join("data/missing_wrap.las"), 1.2, "NO", 1670, 1660, -0.125, -999.25, "ANY ET AL OIL WELL #12", 8, 3, false},
-	{fp.Join("data/more_20_warnings.las"), 1.2, "NO", 0.0, 0.0, 1.0, -32768.0, "6", 6, 23, true}, //in las file STEP=0.0 but this incorrect, LoadHeader replace STEP to actual from data
-	{fp.Join("data/no-data-section.las"), 1.2, "NO", 0.0, 0.0, 0.0, -32768.0, "6", 31, 0, true},  //in las file STEP=0.0 but this incorrect, data section contain incorrect step too, result step equal from input
+	{fp.Join("data/more_20_warnings.las"), 1.2, "NO", 0.0, 0.0, 1.0, -32768.0, "6", 6, 23, true},     //in file STEP=0.0 but this incorrect, LoadHeader replace STEP to actual from data
+	{fp.Join("data/no-data-section.las"), 1.2, "NO", 0.0, 0.0, -32768.0, -32768.0, "6", 31, 0, true}, //in file STEP=0.0 but this incorrect, data section contain incorrect step too, result step equal NULL
 	{fp.Join("data/sample_bracketed_units.las"), 1.2, "NO", 1670, 1660, -0.125, -999.25, "ANY ET AL OIL WELL #12", 8, 3, true},
 	{fp.Join("data/test-curve-sec-empty-mnemonic.las"), 1.2, "NO", 1670, 1669.75, -0.125, -999.25, "ANY ET AL OIL WELL #12", 8, 3, true},
 	{fp.Join("data/UWI_API_leading_zero.las"), 1.2, "NO", 1670, 1660, -0.125, -999.25, "ANY ET AL OIL WELL #12", 8, 3, true},
@@ -82,7 +82,7 @@ func TestCurveSec1(t *testing.T) {
 	assert.Equal(t, "M", las.Logs["D"].Unit)
 }
 
-func TestCurveSec2(t *testing.T) {
+func TestCmpLas(t *testing.T) {
 	correct := makeLasFromFile(fp.Join("data/test-curve-sec-empty-mnemonic+.las"))
 	las := makeLasFromFile(fp.Join("data/test-curve-sec-empty-mnemonic.las"))
 	assert.True(t, cmpLas(correct, las))
@@ -90,6 +90,19 @@ func TestCurveSec2(t *testing.T) {
 	las = makeLasFromFile(fp.Join("data/missing_wrap.las"))
 	assert.False(t, cmpLas(correct, las))
 	assert.False(t, correct.Logs.Cmp(las.Logs))
+}
+
+func TestTabulatedData(t *testing.T) {
+	correct := makeLasFromFile(fp.Join("data/tabulated_data+.las"))
+	las := makeLasFromFile(fp.Join("data/tabulated_data.las"))
+	assert.True(t, cmpLas(correct, las))
+	assert.True(t, correct.Logs.Cmp(las.Logs))
+	//las = NewLas()
+	//las.Open(fp.Join("data/tabulated_data.las"))
+	l := las.Logs["NPHI"]
+	//l, _ := las.logByIndex(3)
+	assert.Equal(t, 0.451, l.log[1])
+	assert.Equal(t, "NPHI", l.Name)
 }
 
 func TestLasCheck(t *testing.T) {
@@ -123,7 +136,7 @@ func TestLasCheck(t *testing.T) {
 	assert.Nil(t, err)
 	s = lasLog.msgOpen.ToString()
 	assert.Contains(t, s, "STEP parameter equal 0")
-	assert.Contains(t, s, "invalid STRT: 0.000 == STOP: 0.000, will be replace to actually")
+	assert.Contains(t, s, "__WRN__ STRT: 0.000 == STOP: 0.000")
 	s = lasLog.msgCheck.String()
 	assert.Empty(t, s)
 	s = lasLog.msgCurve.String(fp.Join("data/more_20_warnings.las"))

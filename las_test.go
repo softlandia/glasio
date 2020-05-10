@@ -42,7 +42,8 @@ func TestReachingMaxAmountWarnings(t *testing.T) {
 	las.Open(fp.Join("data/more_20_warnings.las"))
 	assert.GreaterOrEqual(t, las.Warnings.Count(), 20, fmt.Sprintf("<TestReachingMaxAmountWarnings> on read file data\\more_20_warnings.las warning count: %d\n", las.Warnings.Count()))
 
-	las = nil
+	ExpPoints = 2
+	//las = nil
 	las = NewLas()
 	las.maxWarningCount = 100
 	las.Open(fp.Join("data/more_20_warnings.las"))
@@ -50,6 +51,8 @@ func TestReachingMaxAmountWarnings(t *testing.T) {
 		las.SaveWarning(fp.Join("data/more_20_warnings.wrn"))
 		assert.Equal(t, 41, las.Warnings.Count(), fmt.Sprintf("<TestReachingMaxAmountWarnings> on read file data\\more_20_warnings.las warning count: %d expected 62\n", las.Warnings.Count()))
 	}
+
+	assert.NotNil(t, las.SaveWarning("<wrn>.md"))
 }
 
 //тестируем особые случаи открытия
@@ -149,9 +152,9 @@ type tGetDataStep struct {
 }
 
 var dGetDataStep = []tGetDataStep{
-	{fp.Join("data/step-2-data-without-step-case1.las"), 0.0},
-	{fp.Join("data/step-2-data-without-step-case2.las"), 0.0},
-	{fp.Join("data/no-data-section.las"), 0.0},
+	{fp.Join("data/step-2-data-without-step-case1.las"), -32768},
+	{fp.Join("data/step-2-data-without-step-case2.las"), -32768.000},
+	{fp.Join("data/no-data-section.las"), -32768.000},
 	{fp.Join("data/step-1-normal-case.las"), 1.0},
 }
 
@@ -175,6 +178,9 @@ var dExpandDept = []tExpandDept{
 }
 
 func TestExpandPoints(t *testing.T) {
+	// перед тестом установим маленькое количество ожидаемых точек, иначе надо делать огномный тестовый файл
+	// срабатывание добавления выполняется при переполнении буфера 1000
+	ExpPoints = 2
 	for _, tmp := range dExpandDept {
 		las := NewLas()
 		n, err := las.Open(tmp.fn)
@@ -264,29 +270,27 @@ type tStdCheckLas struct {
 	stop     float64
 	step     float64
 	well     string
-	testsRes [4]bool // stdCheck contain 4 test
+	testsRes map[string]bool // stdCheck contain 4 test
 }
 
 var dCheckLas = []tStdCheckLas{
-	//codepage   null strt   stop  step   well name             проверки  step  null  strt   well
-	{cpd.CP1251, 0.0, 0.201, 10.01, 0.01, "Примерная-101 / бис", [4]bool{true, false, true, true}},
-	{cpd.CP1251, -99.99, 0.201, 10.01, 0.0, "Примерная-101 / бис", [4]bool{false, true, true, true}},
-	{cpd.KOI8R, 0.0, 0.2, 2.0, 0.0, "Примерная-1001 /\"бис\"", [4]bool{false, false, true, true}},
-	{cpd.CP866, 0.0, 0.21, 0.21, 0.1, "Примерная-101 /\"бис\"", [4]bool{true, false, false, true}},
-	{cpd.UTF8, 0.0, 0.2, 0.2, 0.0, "", [4]bool{false, false, false, false}},
-	{cpd.UTF16LE, 0.0, 20.2, 1.0, -0.0, "", [4]bool{false, false, true, false}},
+	//codepage   null strt   stop  step   well name             проверки  wrap, curve, step  null  strt   well
+	{cpd.CP1251, 0.0, 0.201, 10.01, 0.01, "Примерная-101 / бис", map[string]bool{"WRAP": true, "CURV": true, "STEP": true, "NULL": false, "SSTP": true, "WELL": true}},
+	{cpd.CP1251, -99.99, 0.201, 10.01, 0.0, "Примерная-101 / бис", map[string]bool{"WRAP": true, "CURV": true, "STEP": false, "NULL": true, "SSTP": true, "WELL": true}},
+	{cpd.KOI8R, 0.0, 0.2, 2.0, 0.0, "Примерная-1001 /\"бис\"", map[string]bool{"WRAP": true, "CURV": true, "STEP": false, "NULL": false, "SSTP": true, "WELL": true}},
+	{cpd.CP866, 0.0, 0.21, 0.21, 0.1, "Примерная-101 /\"бис\"", map[string]bool{"WRAP": true, "CURV": true, "STEP": true, "NULL": false, "SSTP": false, "WELL": true}},
+	{cpd.UTF8, 0.0, 0.2, 0.2, 0.0, "", map[string]bool{"WRAP": true, "CURV": true, "STEP": false, "NULL": false, "SSTP": false, "WELL": false}},
+	{cpd.UTF16LE, 0.0, 20.2, 1.0, -0.0, "", map[string]bool{"WRAP": true, "CURV": true, "STEP": false, "NULL": false, "SSTP": true, "WELL": false}},
 }
 
 func TestLasChecker(t *testing.T) {
-	chkr := NewEmptyChecker()
-	assert.NotEqual(t, 0, len(chkr))
-	chkr = NewStdChecker() //стандартная проверка на step=0, null=0, strt=stop, well=""
-	for _, tmp := range dCheckLas {
+	chkr := NewStdChecker() //стандартная проверка на step=0, null=0, strt=stop, well=""
+	for i, tmp := range dCheckLas {
 		las := makeSampleLas(tmp.cp, tmp.null, tmp.strt, tmp.stop, tmp.step, tmp.well)
 		assert.NotEqual(t, 0, len(chkr))
-		for i, chk := range chkr {
+		for key, chk := range chkr {
 			checkRes := chk.do(chk, las)
-			assert.Equal(t, tmp.testsRes[i], checkRes.res)
+			assert.Equal(t, tmp.testsRes[key], checkRes.res, fmt.Sprintf("i:%d, r:%s", i, key))
 		}
 	}
 }
@@ -298,17 +302,24 @@ func TestLasChecker2(t *testing.T) {
 	las := makeSampleLas(tmp.cp, tmp.null, tmp.strt, tmp.stop, tmp.step, tmp.well)
 	res := stdChecker.check(las)
 	assert.Equal(t, 1, len(res))
-	assert.Equal(t, res[0].name, "NullNot0")
-	assert.True(t, res.nullWrong())
+	assert.Equal(t, res["NULL"].name, "NULL")
+	assert.True(t, res.nullWrong(), fmt.Sprintf("%v", res.nullWrong()))
+	assert.Contains(t, res["NULL"].warning.String(), "__WRN__ NULL parameter equal 0")
 	assert.False(t, res.stepWrong())
 
-	tmp = dCheckLas[4] // все 4 ошибки
+	tmp = dCheckLas[4] // 4 ошибки NULL=0, START=STOP, STEP=0, WELL=''
 	las = makeSampleLas(tmp.cp, tmp.null, tmp.strt, tmp.stop, tmp.step, tmp.well)
 	res = stdChecker.check(las)
 	assert.Equal(t, 4, len(res))
-	assert.Equal(t, res[0].name, "StepNot0")
-	assert.Equal(t, res[3].message, "WELL == ''")
+	assert.Equal(t, res["STEP"].name, "STEP")
+	assert.Contains(t, res["WELL"].String(), "name: WELL,")
 	assert.True(t, res.stepWrong())
+	assert.True(t, res.nullWrong())
+	assert.True(t, res.stepWrong())
+	assert.True(t, res.wellWrong())
+	assert.True(t, res.strtStopWrong(), fmt.Sprintf("%v", res["SSTP"]))
+	assert.False(t, res.curvesWrong(), fmt.Sprintf("%v", res["CURV"]))
+	assert.False(t, res.wrapWrong(), fmt.Sprintf("%v", res["WRAP"]))
 
 	las = makeSampleLas(cpd.CP866, -999.25, 0, 100, 0.2, "well") //правильные данные
 	res = stdChecker.check(las)                                  //StdChecker должен вернуть пустой слайс

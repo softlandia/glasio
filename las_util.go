@@ -55,10 +55,10 @@ func makeSampleLas(
 	las.Well = well
 
 	curve := NewLasCurve("DEPT.m :")
-	curve.Init(len(las.Logs), "DEPT", "DEPT", las.GetExpectedPointsCount())
+	curve.Init(len(las.Logs), "DEPT", "DEPT", las.GetExpectedPointsCount(las.Strt, las.Stop, las.Step))
 	las.Logs["DEPT"] = curve
 	curve = NewLasCurve("BK.ohmm :laterolog")
-	curve.Init(len(las.Logs), "BK", "LL3", las.GetExpectedPointsCount())
+	curve.Init(len(las.Logs), "BK", "LL3", las.GetExpectedPointsCount(las.Strt, las.Stop, las.Step))
 	las.Logs["BK"] = curve
 	las.setActuallyNumberPoints(5)
 	return las

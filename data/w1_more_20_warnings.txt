@@ -1,23 +1,23 @@
 **file: data\more_20_warnings.las**
-0, line: -1,	desc: invalid STRT: 0.000 == STOP: 0.000, will be replace to actually
-1, line: -1,	desc: STEP parameter equal 0, replace to 0.000
-2, line: 24,	desc: can't convert string: '6.2.2' to number, set to NULL
-3, line: 25,	desc: not all column readed, set log value to NULL
-4, line: 25,	desc: not all column readed, set log value to NULL
-5, line: 26,	desc: actual number of data lines more than expected, check: STRT, STOP, STEP
-6, line: 26,	desc: expand number of points
-7, line: 27,	desc: can't convert string: '6.2.2' to number, set to NULL
-8, line: 29,	desc: can't convert string: '5.97.' to number, set to NULL
-9, line: 30,	desc: actual number of data lines more than expected, check: STRT, STOP, STEP
-10, line: 30,	desc: expand number of points
-11, line: 31,	desc: can't convert string: '6.47.' to number, set to NULL
-12, line: 33,	desc: actual step 64.00 ≠ global STEP  1.00
-13, line: 33,	desc: step 64.00 ≠ previously step  1.00
-14, line: 33,	desc: can't convert string: '5.97.' to number, set to NULL
-15, line: 35,	desc: actual step 47.00 ≠ global STEP  1.00
-16, line: 35,	desc: step 47.00 ≠ previously step 64.00
-17, line: 35,	desc: can't convert string: '5.47.' to number, set to NULL
-18, line: 37,	desc: step  1.00 ≠ previously step 47.00
-19, line: 37,	desc: can't convert string: '4.7.' to number, set to NULL
-20, line: 0,	desc: *maximum count* of warning reached, change parameter 'maxWarningCount' in 'glas.ini'
+0, line: -1,	"__WRN__ STEP parameter equal 0"
+1, line: -1,	"__WRN__ STRT: 0.000 == STOP: 0.000"
+2, line: 24,	"can't convert string: '6.2.2' to number, set to NULL"
+3, line: 25,	"not all column readed, set log value to NULL"
+4, line: 25,	"not all column readed, set log value to NULL"
+5, line: 26,	"actual number of data lines more than expected, check: STRT, STOP, STEP"
+6, line: 26,	"expand number of points"
+7, line: 27,	"can't convert string: '6.2.2' to number, set to NULL"
+8, line: 29,	"can't convert string: '5.97.' to number, set to NULL"
+9, line: 30,	"actual number of data lines more than expected, check: STRT, STOP, STEP"
+10, line: 30,	"expand number of points"
+11, line: 31,	"can't convert string: '6.47.' to number, set to NULL"
+12, line: 33,	"actual step 64.00 ≠ global STEP  1.00"
+13, line: 33,	"step 64.00 ≠ previously step  1.00"
+14, line: 33,	"can't convert string: '5.97.' to number, set to NULL"
+15, line: 35,	"actual step 47.00 ≠ global STEP  1.00"
+16, line: 35,	"step 47.00 ≠ previously step 64.00"
+17, line: 35,	"can't convert string: '5.47.' to number, set to NULL"
+18, line: 37,	"step  1.00 ≠ previously step 47.00"
+19, line: 37,	"can't convert string: '4.7.' to number, set to NULL"
+20, line: 0,	"*maximum count* of warning reached, change parameter 'maxWarningCount' in 'glas.ini'"
 

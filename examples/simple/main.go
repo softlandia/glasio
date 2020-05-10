@@ -45,9 +45,9 @@ func test1() {
 		fmt.Printf("TEST read expand_points_01.las ERROR, n = %d, must 7\n", n)
 		fmt.Println(err)
 	}
-	las.SaveWarning("1.warning.md")
+	las.SaveWarning("expand_points_01.warning.md")
 
-	err = las.Save("-1.las")
+	err = las.Save("expand_points_01+.las")
 	if err != nil {
 		fmt.Println("TEST save -1.las ERROR: ", err)
 	}

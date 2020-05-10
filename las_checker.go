@@ -6,21 +6,28 @@ package glasio
 import "fmt"
 
 // CheckRes - результаты проверки, получааем из функции doCheck()
+// если проверка не прошла, то res будет false и
+// в warning будет положено предупреждение для логов
+// в критических случаях err содержит и ошибку и warning, предупреждение для одних логов, а ошибка для прекращения
+// если err == nil то это не критичная проверка
 type CheckRes struct {
 	name    string
-	section string
-	message string
+	warning TWarning
 	err     error
 	res     bool
+	/*
+		section string
+		message string
+	*/
 }
 
 func (cr CheckRes) String() string {
-	return fmt.Sprintf("check name: %s, section: %s, desc: %s, result: %v", cr.name, cr.section, cr.message, cr.res)
+	return fmt.Sprintf("check name: %s, result: %v", cr.name, cr.res)
 }
 
 type doCheck func(chk Check, las *Las) CheckRes
 
-// Check - отдельная проверка, обязан реализовать функцию doCheck()
+// Check - конкретная проверка, обязан реализовать функцию doCheck()
 type Check struct {
 	name    string
 	section string
@@ -28,65 +35,50 @@ type Check struct {
 	do      doCheck
 }
 
-// checkResults - слайс с результатами всех проверок
-type checkResults []CheckRes
+// CheckResults - слайс с результатами всех проверок
+type CheckResults map[string]CheckRes
 
-func (crs checkResults) nullWrong() bool {
-	for _, r := range crs {
-		if r.name == "NullNot0" {
-			return true
-		}
-	}
-	return false
+func (crs CheckResults) nullWrong() bool {
+	_, ok := crs["NULL"]
+	return ok
 }
 
-func (crs checkResults) stepWrong() bool {
-	for _, r := range crs {
-		if r.name == "StepNot0" {
-			return true
-		}
-	}
-	return false
+func (crs CheckResults) stepWrong() bool {
+	_, ok := crs["STEP"]
+	return ok
 }
 
-func (crs checkResults) wrapWrong() bool {
-	for _, r := range crs {
-		if r.name == "WrapIsOn" {
-			return true
-		}
-	}
-	return false
+func (crs CheckResults) wrapWrong() bool {
+	_, ok := crs["WRAP"]
+	return ok
 }
 
-func (crs checkResults) curvesWrong() bool {
-	for _, r := range crs {
-		if r.name == "CurvesNotPresent" {
-			return true
-		}
-	}
-	return false
+func (crs CheckResults) curvesWrong() bool {
+	_, ok := crs["CURV"]
+	return ok
 }
 
-func (crs checkResults) strtStopWrong() bool {
-	for _, r := range crs {
-		if r.name == "StrtStop" {
-			return true
-		}
-	}
-	return false
+func (crs CheckResults) strtStopWrong() bool {
+	_, ok := crs["SSTP"]
+	return ok
+}
+
+func (crs CheckResults) wellWrong() bool {
+	_, ok := crs["WELL"]
+	return ok
 }
 
 // Checker - ПРОВЕРЩИК, содержит в себе всех отдельных проверщиков,
 // методом check() вызавает последовательно всех своих проверщиков,
 // результаты отправляет в Logger
-type Checker []Check
+type Checker map[string]Check
 
-func (c Checker) check(las *Las) checkResults {
-	res := make([]CheckRes, 0)
-	for _, chk := range c {
+func (c Checker) check(las *Las) CheckResults {
+	res := make(CheckResults, 0)
+	for key, chk := range c {
 		r := chk.do(chk, las)
 		if !r.res {
-			res = append(res, r)
+			res[key] = r
 		}
 	}
 	return res
@@ -94,99 +86,46 @@ func (c Checker) check(las *Las) checkResults {
 
 /****************************/
 
-// NewEmptyChecker - создание нового примитивного объекта ПРОВЕРЩИКА
-// проверяет только на не пустоту объекта las
-func NewEmptyChecker() Checker {
-	return Checker{
-		{chkEmptyName, chkEmptySection, "", emptyCheck},
-	}
-}
-
-const (
-	chkEmptyName    = "LasNotNil"
-	chkEmptySection = "NoN"
-)
-
-// simpleCheck - return true if las not empty
-func emptyCheck(chk Check, las *Las) CheckRes {
-	return CheckRes{chk.name, chk.section, chk.message, nil, !las.IsEmpty()}
-}
-
-/****************************/
-
-// NewWrongChecker - создание нового ПРОВЕРЩИКА на ошибочность las файла.
+// NewStdChecker - создание нового ПРОВЕРЩИКА las файла.
 // WRAP = ON
 // section ~Curve is empty
-func NewWrongChecker() Checker {
-	return Checker{
-		newWrapCheck(),
-		newNotPresentCurvesCheck(),
-	}
-}
-
-func newWrapCheck() Check {
-	return Check{"WrapIsOn", "~V", "WRAP = ON", wrapOn}
-}
-
-func wrapOn(chk Check, las *Las) CheckRes {
-	return CheckRes{chk.name, chk.section, chk.message, fmt.Errorf("Wrapped files not support"), !las.IsWraped()}
-}
-
-func newNotPresentCurvesCheck() Check {
-	return Check{"CurvesNotPresent", "~C", "Curve section is eptry", curvesIsEmpty}
-}
-
-func curvesIsEmpty(chk Check, las *Las) CheckRes {
-	return CheckRes{chk.name, chk.section, chk.message, fmt.Errorf("Curve section not exist"), len(las.Logs) > 0}
-}
-
-// NewStdChecker - создание нового стандартного ПРОВЕРЩИКА
-// проверяет las
 // STEP == 0
 // NULL == 0
 // STRT == STOP
 // WELL is empty
 func NewStdChecker() Checker {
 	return Checker{
-		newStepCheck(),
-		newNullCheck(),
-		newStrtStopCheck(),
-		newWellIsEmptyCheck(),
+		"WRAP": Check{"WRAP", "~V", "WRAP = ON", wrapCheck},
+		"CURV": Check{"CURV", "~C", "Curve section is empty", curvesIsEmpty},
+		"STEP": Check{"STEP", "~W", "STEP = 0", stepCheck},
+		"NULL": Check{"NULL", "~W", "NULL = 0", nullCheck},
+		"SSTP": Check{"SSTP", "~W", "STRT = STOP", strtStop},
+		"WELL": Check{"WELL", "~W", "WELL = ''", wellIsEmpty},
 	}
 }
 
-// Step Check
-func newStepCheck() Check {
-	return Check{"StepNot0", "~W", "STEP == 0", stepCheck}
+// результат проверки возвращаем всегда с готовым варнингом и ошибкой,
+// уже в дальнейшем, те проверки у которых res == true не вносятся в итоговый отчёт
+func wrapCheck(chk Check, las *Las) CheckRes {
+	return CheckRes{chk.name, TWarning{directOnRead, lasSecVersion, -1, "__ERR__ WRAP = YES, file ignored"}, fmt.Errorf("Wrapped files not support"), !las.IsWraped()}
+}
+
+func curvesIsEmpty(chk Check, las *Las) CheckRes {
+	return CheckRes{chk.name, TWarning{directOnRead, lasSecCurInfo, -1, "__ERR__ Curve section is empty, file ignored"}, fmt.Errorf("Curve section not exist"), len(las.Logs) > 0}
 }
 
 func stepCheck(chk Check, las *Las) CheckRes {
-	return CheckRes{chk.name, chk.section, chk.message, nil, las.Step != 0.0}
-}
-
-// Null Check
-func newNullCheck() Check {
-	return Check{"NullNot0", "~W", "NULL == 0", nullCheck}
+	return CheckRes{chk.name, TWarning{directOnRead, lasSecWellInfo, -1, fmt.Sprint("__WRN__ STEP parameter equal 0")}, nil, las.Step != 0.0}
 }
 
 func nullCheck(chk Check, las *Las) CheckRes {
-	return CheckRes{chk.name, chk.section, chk.message, nil, las.Null != 0.0}
+	return CheckRes{chk.name, TWarning{directOnRead, lasSecWellInfo, -1, fmt.Sprint("__WRN__ NULL parameter equal 0")}, nil, las.Null != 0.0}
 }
 
-// STRT == STOP Check
-func newStrtStopCheck() Check {
-	return Check{"StrtStop", "~W", "STRT == STOP", strtStopCheck}
+func strtStop(chk Check, las *Las) CheckRes {
+	return CheckRes{chk.name, TWarning{directOnRead, lasSecWellInfo, -1, fmt.Sprintf("__WRN__ STRT: %4.3f == STOP: %4.3f", las.Strt, las.Stop)}, nil, las.Strt != las.Stop}
 }
 
-func strtStopCheck(chk Check, las *Las) CheckRes {
-	return CheckRes{chk.name, chk.section, chk.message, nil, las.Strt != las.Stop}
-}
-
-// WELL == "" Check
-func newWellIsEmptyCheck() Check {
-	return Check{"WellNotEmpty", "~W", "WELL == ''", wellIsEmptyCheck}
-}
-
-func wellIsEmptyCheck(chk Check, las *Las) CheckRes {
-	return CheckRes{chk.name, chk.section, chk.message, nil, len(las.Well) != 0}
+func wellIsEmpty(chk Check, las *Las) CheckRes {
+	return CheckRes{chk.name, TWarning{directOnRead, lasSecWellInfo, -1, fmt.Sprintf("__WRN__ WELL: '%s' is empty", las.Well)}, nil, len(las.Well) != 0}
 }
