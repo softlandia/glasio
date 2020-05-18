@@ -1,7 +1,7 @@
-~VERSION INFORMATION
-VERS.                          2.0 :glas (c) softlandia@gmail.com
+~Version information
+VERS.                          2.0 : glas (c) softlandia@gmail.com
 WRAP.                          NO  : ONE LINE PER DEPTH STEP
-~WELL INFORMATION
+~Well information
  STRT.M    2.210                                    :START DEPTH
  STOP.M   12.100                                    :STOP  DEPTH
  STEP.M   -0.100                                    :STEP

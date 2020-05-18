@@ -97,10 +97,7 @@ func TestTabulatedData(t *testing.T) {
 	las := makeLasFromFile(fp.Join("data/tabulated_data.las"))
 	assert.True(t, cmpLas(correct, las))
 	assert.True(t, correct.Logs.Cmp(las.Logs))
-	//las = NewLas()
-	//las.Open(fp.Join("data/tabulated_data.las"))
 	l := las.Logs["NPHI"]
-	//l, _ := las.logByIndex(3)
 	assert.Equal(t, 0.451, l.log[1])
 	assert.Equal(t, "NPHI", l.Name)
 }

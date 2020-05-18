@@ -43,7 +43,6 @@ func TestReachingMaxAmountWarnings(t *testing.T) {
 	assert.GreaterOrEqual(t, las.Warnings.Count(), 20, fmt.Sprintf("<TestReachingMaxAmountWarnings> on read file data\\more_20_warnings.las warning count: %d\n", las.Warnings.Count()))
 
 	ExpPoints = 2
-	//las = nil
 	las = NewLas()
 	las.maxWarningCount = 100
 	las.Open(fp.Join("data/more_20_warnings.las"))

@@ -23,11 +23,10 @@ import (
 
 ///format strings represent structure of LAS file
 const (
-	_LasFirstLine      = "~VERSION INFORMATION\n"
-	_LasVersion        = "VERS.                          %3.1f :glas (c) softlandia@gmail.com\n"
-	_LasCodePage       = "CPAGE.                         1251: code page \n"
+	_LasFirstLine      = "~Version information\n"
+	_LasVersion        = "VERS.                          %3.1f : glas (c) softlandia@gmail.com\n"
 	_LasWrap           = "WRAP.                          NO  : ONE LINE PER DEPTH STEP\n"
-	_LasWellInfoSec    = "~WELL INFORMATION\n"
+	_LasWellInfoSec    = "~Well information\n"
 	_LasMnemonicFormat = "#MNEM.UNIT DATA                                  :DESCRIPTION\n"
 	_LasStrt           = " STRT.M %8.3f                                    :START DEPTH\n"
 	_LasStop           = " STOP.M %8.3f                                    :STOP  DEPTH\n"
@@ -49,9 +48,7 @@ const (
 	_LasCurvFormat     = "#MNEM.UNIT                 :DESCRIPTION\n"
 	_LasCurvDept       = " DEPT.M                    :\n"
 	_LasCurvLine       = " %s.%s                     :\n"
-	_LasCurvLine2      = " %s                        :\n"
 	_LasDataSec        = "~ASCII Log Data\n"
-	_LasDataLine       = ""
 
 	//secName: 0 - empty, 1 - Version, 2 - Well info, 3 - Curve info, 4 - dAta
 	lasSecIgnore   = 0
@@ -579,7 +576,6 @@ func (las *Las) ReadDataSec(fileName string) (int, error) {
 			continue
 		}
 		//first column is DEPT
-		//<-> k := strings.IndexRune(s, ' ') //TODO вероятно получим ошибку если данные будут разделены не пробелом а табуляцией или ещё чем-то
 		k := strings.IndexFunc(s, isSeparator)
 		if k < 0 { //line must have n+1 column and n separated spaces block (+1 becouse first column DEPT)
 			las.addWarning(TWarning{directOnRead, lasSecData, las.currentLine, fmt.Sprintf("line: %d is empty, ignore", las.currentLine)})
@@ -613,14 +609,14 @@ func (las *Las) ReadDataSec(fileName string) (int, error) {
 		for j := 1; j < (n - 1); j++ {
 			iSpace := strings.IndexFunc(s, isSeparator)
 			switch iSpace {
-			case -1: //не все колонки прочитаны, а пробелов уже нет... пробуем игнорировать сроку заполняя оставшиеся каротажи NULLами
+			case -1: //не все колонки прочитаны, а разделителей уже нет... пробуем игнорировать сроку заполняя оставшиеся каротажи NULLами
 				las.addWarning(TWarning{directOnRead, lasSecData, las.currentLine, "not all column readed, set log value to NULL"})
 			case 0:
 				v = las.Null
 			case 1:
 				v, err = strconv.ParseFloat(s[:1], 64)
 			default:
-				v, err = strconv.ParseFloat(s[:iSpace], 64) //strconv.ParseFloat(s[:iSpace-1], 64)
+				v, err = strconv.ParseFloat(s[:iSpace], 64)
 			}
 			if err != nil {
 				las.addWarning(TWarning{directOnRead, lasSecData, las.currentLine, fmt.Sprintf("can't convert string: '%s' to number, set to NULL", s[:iSpace-1])})
@@ -698,7 +694,7 @@ func (las *Las) Save(fileName string, useMnemonic ...bool) error {
 		bufToSave []byte
 	)
 	if len(useMnemonic) > 0 {
-		bufToSave, err = las.SaveToBuf(true)
+		bufToSave, err = las.SaveToBuf(useMnemonic[0]) //<> bufToSave, err = las.SaveToBuf(true) //TODO las.SaveToBuf(true) not test
 	} else {
 		bufToSave, err = las.SaveToBuf(false)
 	}
@@ -730,7 +726,7 @@ func (las *Las) SaveToBuf(useMnemonic bool) ([]byte, error) {
 	var err error
 	var b bytes.Buffer
 	fmt.Fprint(&b, _LasFirstLine)
-	fmt.Fprintf(&b, _LasVersion, las.Ver)
+	fmt.Fprintf(&b, _LasVersion, 2.0) //file is always saved in 2.0 format
 	fmt.Fprint(&b, _LasWrap)
 	fmt.Fprint(&b, _LasWellInfoSec)
 	fmt.Fprintf(&b, _LasStrt, las.Strt)
