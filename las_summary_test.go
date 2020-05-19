@@ -98,7 +98,7 @@ func TestTabulatedData(t *testing.T) {
 	assert.True(t, cmpLas(correct, las))
 	assert.True(t, correct.Logs.Cmp(las.Logs))
 	l := las.Logs["NPHI"]
-	assert.Equal(t, 0.451, l.log[1])
+	assert.Equal(t, 0.451, l.V[1])
 	assert.Equal(t, "NPHI", l.Name)
 }
 

@@ -127,14 +127,14 @@ func NewLasParam(s string) *LasParam {
 // по умолчанию строка параметра разбирается на 4 составляющие: "имя параметра, ед измерения, значение, коментарий"
 // между точкой и двоеточием ожидается единица измерения и значение параметра
 // для параметра WELL пробел после точки также разбивает строку на две: ед измерения и значение
-// но ТОЛЬКО для этого параметра единица измерения не существет и делать этого не следует
+// но ТОЛЬКО для этого параметра единица измерения не существует и делать этого не следует
 // таким образом собираем обратно в одно значение то, что ВОЗМОЖНО разбилось
 func wellNameFromParam(p *LasParam) string {
 	if len(p.Unit) == 0 {
 		return p.Val
 	}
 	if len(p.Val) == 0 {
-		return p.Unit
+		return p.Unit //TODO не тестируется
 	}
 	return p.Unit + " " + p.Val
 }
@@ -143,8 +143,8 @@ func wellNameFromParam(p *LasParam) string {
 type LasCurve struct {
 	LasParam
 	Index int
-	dept  []float64
-	log   []float64
+	D     []float64
+	V     []float64
 }
 
 // Cmp - compare current curve with another
@@ -158,15 +158,15 @@ func (o *LasCurve) Cmp(curve LasCurve) (res bool) {
 //SetLen - crop logs to actually len
 //new len must be > 0 and < exist length
 func (o *LasCurve) SetLen(n int) {
-	if (n <= 0) || n >= len(o.dept) {
+	if (n <= 0) || n >= len(o.D) {
 		return
 	}
 	t := make([]float64, n)
-	copy(t, o.dept)
-	o.dept = t
+	copy(t, o.D)
+	o.D = t
 	t = make([]float64, n)
-	copy(t, o.log)
-	o.log = t
+	copy(t, o.V)
+	o.V = t
 }
 
 // Init - initialize LasCurve, set index, name, mnemonic, make slice for store data
@@ -175,8 +175,8 @@ func (o *LasCurve) Init(index int, mnemonic, name string, size int) {
 	o.Index = index
 	o.Mnemonic = mnemonic
 	o.Name = name
-	o.dept = make([]float64, size)
-	o.log = make([]float64, size)
+	o.D = make([]float64, size)
+	o.V = make([]float64, size)
 }
 
 //NewLasCurve - create new object LasCurve
@@ -201,11 +201,15 @@ func (o LasCurve) String() string {
 type LasCurves map[string]LasCurve
 
 // Text - return string represent all curves parameters: IName, Name, Unit etc
+//TODO need realization
 func (o LasCurves) Text() string {
 	return "-"
 }
 
 // Cmp - compare current curves container with another
+// сравниваются:
+//   количество кривых в контейнере
+//   два хеша от строк с именами всех кривых
 func (o LasCurves) Cmp(curves LasCurves) (res bool) {
 	res = (len(o) == len(curves))
 	if res {

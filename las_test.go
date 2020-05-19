@@ -202,8 +202,8 @@ func TestLasSetNull(t *testing.T) {
 	las.Open("-tmp.las")
 	assert.Equal(t, -999.25, las.Null)
 	log := las.Logs["аПС"]
-	assert.Equal(t, las.Null, log.log[2])
-	assert.Equal(t, las.Null, las.Logs["аПС2"].log[6])
+	assert.Equal(t, las.Null, log.V[2])
+	assert.Equal(t, las.Null, las.Logs["аПС2"].V[6])
 	err := os.Remove("-tmp.las")
 	assert.Nil(t, err, fmt.Sprintf("%v", err))
 }

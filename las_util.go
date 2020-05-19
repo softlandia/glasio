@@ -60,7 +60,7 @@ func makeSampleLas(
 	curve = NewLasCurve("BK.ohmm :laterolog")
 	curve.Init(len(las.Logs), "BK", "LL3", las.GetExpectedPointsCount(las.Strt, las.Stop, las.Step))
 	las.Logs["BK"] = curve
-	las.setActuallyNumberPoints(5)
+	las.SetActuallyNumberPoints(5)
 	return las
 }
 

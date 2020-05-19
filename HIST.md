@@ -1,4 +1,10 @@
-﻿## ver 0.1.9 // 2020.05.19 ##
+﻿## ver 0.1.10 // 2020.05.20 ##
+
+- make public fields to access dept slice LasCurve.D and data curve LasCurve.V
+- make public las.SetActuallyNumberPoints(int)
+- update example/simple
+
+## ver 0.1.9 // 2020.05.19 ##
 
 - minor refactoring
 

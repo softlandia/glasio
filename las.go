@@ -64,7 +64,7 @@ type LasWellInfo struct {
 	wrap      string
 	wellName  string
 	null      float64
-	oCodepage cpd.IDCodePage
+	oCodepage cpd.IDCodePage //TODO проверить нужно ли это поле
 }
 
 // Las - class to store las file
@@ -151,9 +151,9 @@ func (las *Las) setStep(h float64) {
 //SetNull - change parameter NULL in WELL INFO section and in all logs
 func (las *Las) SetNull(aNull float64) error {
 	for _, l := range las.Logs { //loop by logs
-		for i := range l.log { //loop by dept step
-			if l.log[i] == las.Null {
-				l.log[i] = aNull
+		for i := range l.V { //loop by dept step
+			if l.V[i] == las.Null {
+				l.V[i] = aNull
 			}
 		}
 	}
@@ -513,12 +513,12 @@ func (las *Las) expandDept(d *LasCurve) {
 	las.ePoints *= 2
 	//expand first log - dept
 	newDept := make([]float64, las.ePoints)
-	copy(newDept, d.dept)
-	d.dept = newDept
+	copy(newDept, d.D)
+	d.D = newDept
 
 	newLog := make([]float64, las.ePoints)
-	copy(newLog, d.dept)
-	d.log = newLog
+	copy(newLog, d.D)
+	d.V = newLog
 	las.Logs[d.Name] = *d
 
 	//loop over other logs
@@ -527,12 +527,12 @@ func (las *Las) expandDept(d *LasCurve) {
 	for j := 1; j < n; j++ {
 		l, _ = las.logByIndex(j)
 		newDept := make([]float64, las.ePoints)
-		copy(newDept, l.dept)
-		l.dept = newDept
+		copy(newDept, l.D)
+		l.D = newDept
 
 		newLog := make([]float64, las.ePoints)
-		copy(newLog, l.log)
-		l.log = newLog
+		copy(newLog, l.V)
+		l.V = newLog
 		las.Logs[l.Name] = *l
 	}
 }
@@ -588,19 +588,19 @@ func (las *Las) ReadDataSec(fileName string) (int, error) {
 			i--
 			continue
 		}
-		d.dept[i] = dept
+		d.D[i] = dept
 		// проверка шага у первых двух точек данных и сравнение с параметром step
 		//TODO данную проверку следует делать через Checker
 		if i > 1 {
-			if math.Pow(((dept-d.dept[i-1])-las.Step), 2) > 0.1 {
-				las.addWarning(TWarning{directOnRead, lasSecData, las.currentLine, fmt.Sprintf("actual step %5.2f ≠ global STEP %5.2f", (dept - d.dept[i-1]), las.Step)})
+			if math.Pow(((dept-d.D[i-1])-las.Step), 2) > 0.1 {
+				las.addWarning(TWarning{directOnRead, lasSecData, las.currentLine, fmt.Sprintf("actual step %5.2f ≠ global STEP %5.2f", (dept - d.D[i-1]), las.Step)})
 			}
 		}
 		// проверка шага между точками [i-1, i] и точками [i-2, i-1] обнаружение немонотонности колонки глубин
 		if i > 2 {
-			if math.Pow(((dept-d.dept[i-1])-(d.dept[i-1]-d.dept[i-2])), 2) > 0.1 {
-				las.addWarning(TWarning{directOnRead, lasSecData, las.currentLine, fmt.Sprintf("step %5.2f ≠ previously step %5.2f", (dept - d.dept[i-1]), (d.dept[i-1] - d.dept[i-2]))})
-				dept = d.dept[i-1] + las.Step
+			if math.Pow(((dept-d.D[i-1])-(d.D[i-1]-d.D[i-2])), 2) > 0.1 {
+				las.addWarning(TWarning{directOnRead, lasSecData, las.currentLine, fmt.Sprintf("step %5.2f ≠ previously step %5.2f", (dept - d.D[i-1]), (d.D[i-1] - d.D[i-2]))})
+				dept = d.D[i-1] + las.Step
 			}
 		}
 
@@ -627,8 +627,8 @@ func (las *Las) ReadDataSec(fileName string) (int, error) {
 				las.nPoints = i
 				return i, errors.New("internal ERROR, func (las *Las) readDataSec()::las.logByIndex(j) return error")
 			}
-			l.dept[i] = dept
-			l.log[i] = v
+			l.D[i] = dept
+			l.V[i] = v
 			s = strings.TrimSpace(s[iSpace+1:])
 		}
 		//остаток - последняя колонка
@@ -642,12 +642,12 @@ func (las *Las) ReadDataSec(fileName string) (int, error) {
 			las.nPoints = i
 			return i, errors.New("internal ERROR, func (las *Las) readDataSec()::las.logByIndex(j) return error on last column")
 		}
-		l.dept[i] = dept
-		l.log[i] = v
+		l.D[i] = dept
+		l.V[i] = v
 	}
 	//i - actually readed lines and add (.) to data array
 	//crop logs to actually len
-	err = las.setActuallyNumberPoints(i)
+	err = las.SetActuallyNumberPoints(i)
 	if err != nil {
 		return 0, err
 	}
@@ -659,16 +659,17 @@ func (las *Las) NumPoints() int {
 	return las.nPoints
 }
 
-//Dept - return slice of DEPT curve (first column)
+// Dept - return slice of DEPT curve (first column)
 func (las *Las) Dept() []float64 {
 	d, err := las.logByIndex(0)
 	if err != nil {
 		return nil
 	}
-	return d.dept
+	return d.D
 }
 
-func (las *Las) setActuallyNumberPoints(numPoints int) error {
+// SetActuallyNumberPoints - crop all curve to numPoints count of data
+func (las *Las) SetActuallyNumberPoints(numPoints int) error {
 	if numPoints <= 0 {
 		las.nPoints = 0
 		return errors.New("internal ERROR, func (las *Las) setActuallyNumberPoints(), actually number of points <= 0")
@@ -757,14 +758,14 @@ func (las *Las) SaveToBuf(useMnemonic bool) ([]byte, error) {
 	fmt.Fprintf(&b, "%s\n", sb.String())
 	dept, _ := las.logByIndex(0)
 	for i := 0; i < las.nPoints; i++ { //loop by dept (.)
-		fmt.Fprintf(&b, "%-9.3f ", dept.dept[i])
+		fmt.Fprintf(&b, "%-9.3f ", dept.D[i])
 		for j := 1; j < n; j++ { //loop by logs
 			l, err = las.logByIndex(j)
 			if err != nil {
 				las.addWarning(TWarning{directOnWrite, lasSecData, i, "logByIndex() return error, log not found, panic"})
 				return nil, errors.New("logByIndex() return error, log not found, panic")
 			}
-			fmt.Fprintf(&b, "%-9.3f ", l.log[i])
+			fmt.Fprintf(&b, "%-9.3f ", l.V[i])
 		}
 		fmt.Fprintln(&b)
 	}

@@ -185,32 +185,32 @@ func TestNewLasCurveFromString(t *testing.T) {
 func TestLasCurveSetLen(t *testing.T) {
 	curve := NewLasCurve("SP.mV  :self")
 	curve.Init(0, "SP", "SP", 5)
-	curve.dept[0] = 0.1
-	curve.dept[1] = 0.2
-	curve.dept[2] = 0.3
-	curve.dept[3] = 0.4
-	curve.dept[4] = 0.5
+	curve.D[0] = 0.1
+	curve.D[1] = 0.2
+	curve.D[2] = 0.3
+	curve.D[3] = 0.4
+	curve.D[4] = 0.5
 	curve.SetLen(3)
-	assert.Equal(t, 3, len(curve.dept))
-	assert.Equal(t, 3, len(curve.log))
-	assert.Equal(t, 0.3, curve.dept[2])
+	assert.Equal(t, 3, len(curve.D))
+	assert.Equal(t, 3, len(curve.V))
+	assert.Equal(t, 0.3, curve.D[2])
 
 	curve.SetLen(4) //nothing to do, size of data slice not change
-	assert.Equal(t, 3, len(curve.dept))
-	assert.Equal(t, 3, len(curve.log))
+	assert.Equal(t, 3, len(curve.D))
+	assert.Equal(t, 3, len(curve.V))
 
 	curve.SetLen(0) //nothing to do, size of data slice not change
-	assert.Equal(t, 3, len(curve.dept))
-	assert.Equal(t, 3, len(curve.log))
+	assert.Equal(t, 3, len(curve.D))
+	assert.Equal(t, 3, len(curve.V))
 
 	curve.SetLen(-5) //nothing to do, size of data slice not change
-	assert.Equal(t, 3, len(curve.dept))
-	assert.Equal(t, 3, len(curve.log))
+	assert.Equal(t, 3, len(curve.D))
+	assert.Equal(t, 3, len(curve.V))
 
 	curve.SetLen(2)
-	assert.Equal(t, 2, len(curve.dept))
-	assert.Equal(t, 2, len(curve.log))
-	assert.Equal(t, 0.2, curve.dept[1])
+	assert.Equal(t, 2, len(curve.D))
+	assert.Equal(t, 2, len(curve.V))
+	assert.Equal(t, 0.2, curve.D[1])
 }
 
 func TestLasCurveString(t *testing.T) {
