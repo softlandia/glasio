@@ -40,18 +40,24 @@ func TestGetMnemonic(t *testing.T) {
 func TestReachingMaxAmountWarnings(t *testing.T) {
 	las := NewLas()
 	las.Open(fp.Join("data/more_20_warnings.las"))
-	assert.GreaterOrEqual(t, las.Warnings.Count(), 20, fmt.Sprintf("<TestReachingMaxAmountWarnings> on read file data\\more_20_warnings.las warning count: %d\n", las.Warnings.Count()))
+	// Добавить MaxAmountWarning и остановить подсчет предупреждений
+	// Add a MaxAmountWarning and stop counting warnings.
+	assert.Equal(t, 21, las.Warnings.Count(), fmt.Sprintf("<TestReachingMaxAmountWarnings> on read file data\\more_20_warnings.las warning count: %d\n", las.Warnings.Count()))
 
 	ExpPoints = 2
 	las = NewLas()
 	las.maxWarningCount = 100
 	las.Open(fp.Join("data/more_20_warnings.las"))
-	if las.Warnings.Count() != 41 {
-		las.SaveWarning(fp.Join("data/more_20_warnings.wrn"))
-		assert.Equal(t, 41, las.Warnings.Count(), fmt.Sprintf("<TestReachingMaxAmountWarnings> on read file data\\more_20_warnings.las warning count: %d expected 62\n", las.Warnings.Count()))
-	}
+	assert.Equal(t, 41, las.Warnings.Count(), fmt.Sprintf("<TestReachingMaxAmountWarnings> on read file data\\more_20_warnings.las warning count: %d expected 62\n", las.Warnings.Count()))
 
-	assert.NotNil(t, las.SaveWarning("<wrn>.md"))
+	// SaveWarning () не добавляет к las.Warnings
+	// SaveWarning() does not add to las.Warnings.
+	las.SaveWarning(fp.Join("data/more_20_warnings.wrn"))
+	assert.Equal(t, 41, las.Warnings.Count(), fmt.Sprintf("<TestReachingMaxAmountWarnings> on read file data\\more_20_warnings.las warning count: %d expected 62\n", las.Warnings.Count()))
+
+	// Если SaveWarning () не может записать в параметр файла, то это не ноль
+	// If SaveWarning() fails to write to the file parameter, then it is not nil.
+	assert.NotNil(t, las.SaveWarning(""))
 }
 
 //тестируем особые случаи открытия
