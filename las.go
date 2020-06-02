@@ -97,78 +97,7 @@ type Las struct {
 	currentLine     int                //index of current line in readed file
 	maxWarningCount int                //default maximum warning count
 	stdNull         float64            //default null value
-}
 
-// GetStepFromData - return step from data section
-// read 2 line from section ~A and determine step
-// close file
-// return Null if error occure
-// если делать функцией, не методом, то придётся NULL передавать. а оно надо вообще
-func (las *Las) GetStepFromData() float64 {
-	iFile, err := os.Open(las.FileName)
-	if err != nil {
-		return las.Null
-	}
-	defer iFile.Close()
-
-	_, iScanner, err := xlib.SeekFileStop(las.FileName, "~A")
-	if (err != nil) || (iScanner == nil) {
-		return las.Null
-	}
-
-	s := ""
-	j := 0
-	dept1 := 0.0
-	dept2 := 0.0
-	for i := 0; iScanner.Scan(); i++ {
-		s = strings.TrimSpace(iScanner.Text())
-		if (len(s) == 0) || (s[0] == '#') {
-			continue
-		}
-		k := strings.IndexRune(s, ' ')
-		if k < 0 {
-			k = len(s)
-		}
-		dept1, err = strconv.ParseFloat(s[:k], 64)
-		if err != nil {
-			return las.Null
-		}
-		j++
-		if j == 2 {
-			return math.Round((dept1-dept2)*10) / 10
-		}
-		dept2 = dept1
-	}
-	//если мы попали сюда, то всё грусно, в файле после ~A не нашлось двух строчек с данными... или пустые строчки или комменты
-	// TODO последняя строка "return las.Null" не обрабатывается в тесте
-	return las.Null
-}
-
-func (las *Las) setStep(h float64) {
-	las.Step = h
-}
-
-//SetNull - change parameter NULL in WELL INFO section and in all logs
-func (las *Las) SetNull(aNull float64) error {
-	for _, l := range las.Logs { //loop by logs
-		for i := range l.V { //loop by dept step
-			if l.V[i] == las.Null {
-				l.V[i] = aNull
-			}
-		}
-	}
-	las.Null = aNull
-	return nil
-}
-
-//logByIndex - return log from map by Index
-func (las *Las) logByIndex(i int) (*LasCurve, error) {
-	for _, v := range las.Logs {
-		if v.Index == i {
-			return &v, nil
-		}
-	}
-	return nil, fmt.Errorf("log with index: %v not present", i)
 }
 
 var (
@@ -192,7 +121,10 @@ func NewLas(outputCP ...cpd.IDCodePage) *Las {
 	las.ePoints = ExpPoints
 	las.Logs = make(map[string]LasCurve)
 	las.maxWarningCount = MaxWarningCount
-	las.stdNull = -999.25
+	las.stdNull = StdNull
+	las.Strt = StdNull
+	las.Stop = StdNull
+	las.Step = StdNull
 	if len(outputCP) > 0 {
 		las.oCodepage = outputCP[0]
 	} else {
@@ -310,7 +242,7 @@ func (las *Las) GetMnemonic(logName string) string {
 
 // Open - load las file
 // return error on:
-// - file to open not exist
+// - file not exist
 // - file cannot be decoded to UTF-8
 // - las is wrapped
 // - las file not contain Curve section
@@ -318,50 +250,44 @@ func (las *Las) Open(fileName string) (int, error) {
 	var err error
 	las.File, err = os.Open(fileName)
 	if err != nil {
-		return 0, err
+		return 0, err //FATAL error - file not exist
 	}
 	defer las.File.Close()
 	las.FileName = fileName
 	//create and store Reader, this reader decode to UTF-8
 	las.Reader, err = cpd.NewReader(las.File)
 	if err != nil {
-		return 0, err
+		return 0, err //FATAL error - file cannot be decoded to UTF-8
 	}
+	// prepare file to read
 	las.scanner = bufio.NewScanner(las.Reader)
 	las.currentLine = 0
 	las.LoadHeader()
-	// проверки на фатальные ошибки
 	stdChecker := NewStdChecker()
+	// check for FATAL errors
 	r := stdChecker.check(las)
-	err = las.saveHeaderWarning(r)
-	if err != nil {
+	las.storeHeaderWarning(r)
+	if err = r.fatal(); err != nil {
 		return 0, err
 	}
 	if r.nullWrong() {
 		las.SetNull(las.stdNull)
 	}
 	if r.stepWrong() {
-		h := las.GetStepFromData() // return o.Null if cannot calculate step from data
-		las.setStep(h)
+		h := las.GetStepFromData() // return las.Null if cannot calculate step from data
 		if h == las.Null {
 			las.addWarning(TWarning{directOnRead, lasSecWellInfo, -1, fmt.Sprint("__WRN__ STEP parameter on data is wrong")})
 		}
+		las.setStep(h)
 	}
 	return las.ReadDataSec(fileName)
 }
 
-// saveHeaderWarning - собирает варнинги от всех проверок, возвращает err != nil в случае фатального значения параметра.
-// при нескольких фатальных проверках, возвращается последняя, но варнинги прописываются все.
-// поскольку варнинги делаются и для фатальных и для не критичных проверок, то
-// ничего пропущено не будет
-func (las *Las) saveHeaderWarning(chkResults CheckResults) (err error) {
+// saveHeaderWarning - забирает и сохраняет варнинги от всех проверок
+func (las *Las) storeHeaderWarning(chkResults CheckResults) {
 	for _, v := range chkResults {
 		las.addWarning(v.warning)
-		if v.err != nil {
-			err = v.err
-		}
 	}
-	return err
 }
 
 /*LoadHeader - read las file and load all section before ~A
@@ -779,137 +705,89 @@ func (las *Las) IsEmpty() bool {
 	return (las.Logs == nil)
 }
 
-/*
-func (o *Las) open1(fileName string) (int, error) {
-	var err error
-	o.File, err = os.Open(fileName)
+// GetStepFromData - return step from data section
+// read 2 line from section ~A and determine step
+// close file
+// return Null if error occure
+// если делать функцией, не методом, то придётся NULL передавать. а оно надо вообще
+func (las *Las) GetStepFromData() float64 {
+	iFile, err := os.Open(las.FileName)
 	if err != nil {
-		return 0, err
+		return las.Null
 	}
-	defer o.File.Close()
-	o.FileName = fileName
-	//create and store Reader, this reader decode to UTF-8
-	o.Reader, err = cpd.NewReader(o.File)
-	if err != nil {
-		return 0, err
-	}
-	o.scanner = bufio.NewScanner(o.Reader)
-	o.currentLine = 0
-	o.LoadHeader()
+	defer iFile.Close()
 
-	// проверка корректности данных секции WELL INFO перез загрузкой данных
-	res, err := o.checkHeader() // res содержит несколько сообщений связанных с корректностью заголовка las файла
-	if err != nil {
-		return 0, err // дальше читать файл смысла нет, или файл с переносами или нет секции Curve ...
+	_, iScanner, err := xlib.SeekFileStop(las.FileName, "~A")
+	if (err != nil) || (iScanner == nil) {
+		return las.Null
 	}
-	// обрабатываем изменение параметров las файла по результатам чтения заголовка
-	if res.needUpdateNull() {
-		o.SetNull(o.stdNull)
-	}
-	if res.needUpdateStep() {
-		h := o.GetStepFromData() // return o.Null if cannot calculate step from data
-		o.setStep(h)
-		if h == o.Null {
-			return 0, errors.New("invalid STEP parameter and invalid step in data")
+
+	s := ""
+	j := 0
+	dept1 := 0.0
+	dept2 := 0.0
+	for i := 0; iScanner.Scan(); i++ {
+		s = strings.TrimSpace(iScanner.Text())
+		if (len(s) == 0) || (s[0] == '#') {
+			continue
 		}
-	}
-	return o.ReadDataSec(fileName)
-}
-*/
-
-/*
-// NewLasPar - create new object with parameters
-func NewLasPar(lasInfo LasWellInfo) *Las {
-	las := new(Las)
-	las.Ver = lasInfo.ver
-	las.Wrap = lasInfo.wrap
-	las.Well = lasInfo.wellName
-	las.stdNull = lasInfo.null
-	las.oCodepage = lasInfo.oCodepage
-
-	las.maxWarningCount = MaxWarningCount
-	las.ePoints = ExpPoints
-	las.Logs = make(map[string]LasCurve)
-	//mnemonic dictionary
-	las.LogDic = nil
-	//external log dictionary
-	las.VocDic = nil
-	//счётчик повторяющихся мнемоник, увеличивается каждый раз на 1, используется при переименовании мнемоники
-	las.iDuplicate = 0
-	return las
-}
-*/
-
-/*
-func (o *Las) convertStrToOut(s string) string {
-	r, _ := cpd.NewReaderTo(strings.NewReader(s), o.oCodepage.String())
-	b, _ := ioutil.ReadAll(r)
-	return string(b)
-}
-
-
-func (o *Las) SaveToFile(fileName string, useMnemonic ...bool) error {
-	n := len(o.Logs) //log count
-	if n <= 0 {
-		return errors.New("logs not exist")
-	}
-
-	var f *os.File
-	var err error
-	if !xlib.FileExists(fileName) {
-		err = os.MkdirAll(filepath.Dir(fileName), os.ModePerm)
+		k := strings.IndexRune(s, ' ')
+		if k < 0 {
+			k = len(s)
+		}
+		dept1, err = strconv.ParseFloat(s[:k], 64)
 		if err != nil {
-			return errors.New("path: '" + filepath.Dir(fileName) + "' can't create >>" + err.Error())
+			return las.Null
 		}
+		j++
+		if j == 2 {
+			return math.Round((dept1-dept2)*10) / 10
+		}
+		dept2 = dept1
 	}
-	f, err = os.Create(fileName) //Open file to WRITE
-	if err != nil {
-		return errors.New("file: '" + fileName + "' can't open to write >>" + err.Error())
-	}
-	defer f.Close()
+	//если мы попали сюда, то всё грусно, в файле после ~A не нашлось двух строчек с данными... или пустые строчки или комменты
+	// TODO последняя строка "return las.Null" не обрабатывается в тесте
+	return las.Null
+}
 
-	fmt.Fprint(f, _LasFirstLine)
-	fmt.Fprintf(f, _LasVersion, o.Ver)
-	fmt.Fprint(f, _LasWrap)
-	fmt.Fprint(f, _LasWellInfoSec)
-	fmt.Fprintf(f, _LasStrt, o.Strt)
-	fmt.Fprintf(f, _LasStop, o.Stop)
-	fmt.Fprintf(f, _LasStep, o.Step)
-	fmt.Fprintf(f, _LasNull, o.Null)
-	fmt.Fprintf(f, _LasWell, o.convertStrToOut(o.Well))
-	fmt.Fprint(f, _LasCurvSec)
-	fmt.Fprint(f, _LasCurvDept)
+func (las *Las) setStep(h float64) {
+	las.Step = h
+}
 
-	s := "# DEPT  |" //готовим строчку с названиями каротажей глубина всегда присутствует
-	var l *LasCurve
-	for i := 1; i < n; i++ { //Пишем названия каротажей
-		l, _ := o.logByIndex(i)
-		if len(useMnemonic) > 0 {
-			if len(l.Mnemonic) > 0 {
-				l.Name = l.Mnemonic
+// IsStrtEmpty - return true if parameter Strt not exist in file
+func (las *Las) IsStrtEmpty() bool {
+	return las.Strt == StdNull
+}
+
+// IsStopEmpty - return true if parameter Stop not exist in file
+func (las *Las) IsStopEmpty() bool {
+	return las.Stop == StdNull
+}
+
+// IsStepEmpty - return true if parameter Step not exist in file
+func (las *Las) IsStepEmpty() bool {
+	return las.Step == StdNull
+}
+
+// SetNull - change parameter NULL in WELL INFO section and in all logs
+func (las *Las) SetNull(aNull float64) error {
+	for _, l := range las.Logs { //loop by logs
+		for i := range l.V { //loop by dept step
+			if l.V[i] == las.Null {
+				l.V[i] = aNull
 			}
 		}
-		fmt.Fprintf(f, _LasCurvLine, o.convertStrToOut(l.Name), o.convertStrToOut(l.Unit)) //запись мнемоник в секции ~Curve
-		s += " " + fmt.Sprintf("%-8s|", l.Name)                                            //Собираем строчку с названиями каротажей
 	}
-
-	fmt.Fprintf(f, _LasDataSec)
-	//write data
-	s += "\n"
-	fmt.Fprintf(f, o.convertStrToOut(s))
-	dept, _ := o.logByIndex(0)
-	for i := 0; i < o.nPoints; i++ { //loop by dept (.)
-		fmt.Fprintf(f, "%-9.3f ", dept.dept[i])
-		for j := 1; j < n; j++ { //loop by logs
-			l, err = o.logByIndex(j)
-			if err != nil {
-				o.addWarning(TWarning{directOnWrite, lasSecData, i, "logByIndex() return error, log not found, panic"})
-				return errors.New("logByIndex() return error, log not found, panic")
-			}
-			fmt.Fprintf(f, "%-9.3f ", l.log[i])
-		}
-		fmt.Fprintln(f)
-	}
+	las.Null = aNull
 	return nil
 }
-*/
+
+//logByIndex - return log from map by Index
+func (las *Las) logByIndex(i int) (*LasCurve, error) {
+	for _, v := range las.Logs {
+		if v.Index == i {
+			return &v, nil
+		}
+	}
+	return nil, fmt.Errorf("log with index: %v not present", i)
+}

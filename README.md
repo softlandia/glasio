@@ -44,6 +44,11 @@ repaire
 - reads all LAS files in current folder
 - saves the recovered files to the same folder
 
+lasin
+
+- reads LAS file
+- print warning
+
 ## tests ##
 
 coverage 91%  

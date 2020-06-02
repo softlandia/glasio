@@ -280,12 +280,15 @@ type tStdCheckLas struct {
 
 var dCheckLas = []tStdCheckLas{
 	//codepage   null strt   stop  step   well name             проверки  wrap, curve, step  null  strt   well
-	{cpd.CP1251, 0.0, 0.201, 10.01, 0.01, "Примерная-101 / бис", map[string]bool{"WRAP": true, "CURV": true, "STEP": true, "NULL": false, "SSTP": true, "WELL": true}},
-	{cpd.CP1251, -99.99, 0.201, 10.01, 0.0, "Примерная-101 / бис", map[string]bool{"WRAP": true, "CURV": true, "STEP": false, "NULL": true, "SSTP": true, "WELL": true}},
-	{cpd.KOI8R, 0.0, 0.2, 2.0, 0.0, "Примерная-1001 /\"бис\"", map[string]bool{"WRAP": true, "CURV": true, "STEP": false, "NULL": false, "SSTP": true, "WELL": true}},
-	{cpd.CP866, 0.0, 0.21, 0.21, 0.1, "Примерная-101 /\"бис\"", map[string]bool{"WRAP": true, "CURV": true, "STEP": true, "NULL": false, "SSTP": false, "WELL": true}},
-	{cpd.UTF8, 0.0, 0.2, 0.2, 0.0, "", map[string]bool{"WRAP": true, "CURV": true, "STEP": false, "NULL": false, "SSTP": false, "WELL": false}},
-	{cpd.UTF16LE, 0.0, 20.2, 1.0, -0.0, "", map[string]bool{"WRAP": true, "CURV": true, "STEP": false, "NULL": false, "SSTP": true, "WELL": false}},
+	{cpd.CP1251, 0.0, 0.201, 10.01, 0.01, "Примерная-101 / бис", map[string]bool{"STOP": true, "STPU": true, "STRT": true, "WRAP": true, "CURV": true, "STEP": true, "NULL": false, "SSTP": true, "WELL": true}},
+	{cpd.CP1251, -99.99, 0.201, 10.01, 0.0, "Примерная-101 / бис", map[string]bool{"STOP": true, "STPU": true, "STRT": true, "WRAP": true, "CURV": true, "STEP": false, "NULL": true, "SSTP": true, "WELL": true}},
+	{cpd.KOI8R, 0.0, 0.2, 2.0, 0.0, "Примерная-1001 /\"бис\"", map[string]bool{"STOP": true, "STPU": true, "STRT": true, "WRAP": true, "CURV": true, "STEP": false, "NULL": false, "SSTP": true, "WELL": true}},
+	{cpd.CP866, 0.0, 0.21, 0.21, 0.1, "Примерная-101 /\"бис\"", map[string]bool{"STOP": true, "STPU": true, "STRT": true, "WRAP": true, "CURV": true, "STEP": true, "NULL": false, "SSTP": false, "WELL": true}},
+	{cpd.UTF8, 0.0, 0.2, 0.2, 0.0, "", map[string]bool{"STOP": true, "STPU": true, "STRT": true, "WRAP": true, "CURV": true, "STEP": false, "NULL": false, "SSTP": false, "WELL": false}},
+	{cpd.UTF16LE, 0.0, 20.2, 1.0, -0.0, "", map[string]bool{"STOP": true, "STPU": true, "STRT": true, "WRAP": true, "CURV": true, "STEP": false, "NULL": false, "SSTP": true, "WELL": false}},
+	{cpd.CP1251, 0.0, -999.25, 10.01, 0.01, "Примерная-101 / бис", map[string]bool{"STOP": true, "STPU": true, "STRT": false, "WRAP": true, "CURV": true, "STEP": true, "NULL": false, "SSTP": true, "WELL": true}},
+	{cpd.CP1251, 0.0, 0, -999.25, 0.01, "Примерная-101 / бис", map[string]bool{"STOP": false, "STPU": true, "STRT": true, "WRAP": true, "CURV": true, "STEP": true, "NULL": false, "SSTP": true, "WELL": true}},
+	{cpd.CP1251, 0.0, 0, 2.1, -999.25, "Примерная-101 / бис", map[string]bool{"STOP": true, "STPU": false, "STRT": true, "WRAP": true, "CURV": true, "STEP": true, "NULL": false, "SSTP": true, "WELL": true}},
 }
 
 func TestLasChecker(t *testing.T) {

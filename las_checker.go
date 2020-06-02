@@ -8,17 +8,13 @@ import "fmt"
 // CheckRes - результаты проверки, получааем из функции doCheck()
 // если проверка не прошла, то res будет false и
 // в warning будет положено предупреждение для логов
-// в критических случаях err содержит и ошибку и warning, предупреждение для одних логов, а ошибка для прекращения
+// в критических случаях err != nil и в себе содержит сообщение, при этом warning содержит соответствующее предупреждение для логов
 // если err == nil то это не критичная проверка
 type CheckRes struct {
 	name    string
 	warning TWarning
 	err     error
 	res     bool
-	/*
-		section string
-		message string
-	*/
 }
 
 func (cr CheckRes) String() string {
@@ -35,7 +31,7 @@ type Check struct {
 	do      doCheck
 }
 
-// CheckResults - слайс с результатами всех проверок
+// CheckResults - map с результатами всех проверок
 type CheckResults map[string]CheckRes
 
 func (crs CheckResults) nullWrong() bool {
@@ -45,7 +41,8 @@ func (crs CheckResults) nullWrong() bool {
 
 func (crs CheckResults) stepWrong() bool {
 	_, ok := crs["STEP"]
-	return ok
+	_, ok2 := crs["STPU"]
+	return ok || ok2
 }
 
 func (crs CheckResults) wrapWrong() bool {
@@ -68,13 +65,38 @@ func (crs CheckResults) wellWrong() bool {
 	return ok
 }
 
+// isFatal - return true if CheckResults contains at least one check result with fatal error
+func (crs CheckResults) isFatal() bool {
+	for _, c := range crs {
+		if c.err != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// fatal - return first not nil error if CheckResults contains at least one check result with fatal error
+func (crs CheckResults) fatal() error {
+	for _, c := range crs {
+		if c.err != nil {
+			return c.err
+		}
+	}
+	return nil
+}
+
 // Checker - ПРОВЕРЩИК, содержит в себе всех отдельных проверщиков,
 // методом check() вызавает последовательно всех своих проверщиков,
 // результаты отправляет в Logger
 type Checker map[string]Check
 
+// возвращает map в который сложены результаты проверки которые дали ошибку
+// если проверка прошла безошибочно, то её в результатах не будет
+// полученный map содержит только ошибки
 func (c Checker) check(las *Las) CheckResults {
 	res := make(CheckResults, 0)
+	// key - имя проверки
+	// chk - сам проверщик
 	for key, chk := range c {
 		r := chk.do(chk, las)
 		if !r.res {
@@ -98,14 +120,29 @@ func NewStdChecker() Checker {
 		"WRAP": Check{"WRAP", "~V", "WRAP = ON", wrapCheck},
 		"CURV": Check{"CURV", "~C", "Curve section is empty", curvesIsEmpty},
 		"STEP": Check{"STEP", "~W", "STEP = 0", stepCheck},
+		"STPU": Check{"STPU", "~W", "STEP not exist", stepExistCheck},
 		"NULL": Check{"NULL", "~W", "NULL = 0", nullCheck},
 		"SSTP": Check{"SSTP", "~W", "STRT = STOP", strtStop},
 		"WELL": Check{"WELL", "~W", "WELL = ''", wellIsEmpty},
+		"STRT": Check{"STRT", "~W", "STRT not exist", strtExistCheck},
+		"STOP": Check{"STOP", "~W", "STOP not exist", stopExistCheck},
 	}
 }
 
 // результат проверки возвращаем всегда с готовым варнингом и ошибкой,
 // уже в дальнейшем, те проверки у которых res == true не вносятся в итоговый отчёт
+func stepExistCheck(chk Check, las *Las) CheckRes {
+	return CheckRes{chk.name, TWarning{directOnRead, lasSecWellInfo, -1, "__WRN__ parameter STEP not exist"}, nil, !las.IsStepEmpty()}
+}
+
+func stopExistCheck(chk Check, las *Las) CheckRes {
+	return CheckRes{chk.name, TWarning{directOnRead, lasSecWellInfo, -1, "__WRN__ parameter STOP not exist"}, nil, !las.IsStopEmpty()}
+}
+
+func strtExistCheck(chk Check, las *Las) CheckRes {
+	return CheckRes{chk.name, TWarning{directOnRead, lasSecWellInfo, -1, "__WRN__ parameter STRT not exist"}, nil, !las.IsStrtEmpty()}
+}
+
 func wrapCheck(chk Check, las *Las) CheckRes {
 	return CheckRes{chk.name, TWarning{directOnRead, lasSecVersion, -1, "__ERR__ WRAP = YES, file ignored"}, fmt.Errorf("Wrapped files not support"), !las.IsWraped()}
 }

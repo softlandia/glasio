@@ -1,4 +1,9 @@
-﻿## ver 0.1.10 // 2020.05.20 ##
+﻿## ver 0.1.11 // 2020.06.2 ##
+
+- add new check on read
+- add example/lasin -- very simple but useful 
+
+## ver 0.1.10 // 2020.05.20 ##
 
 - make public fields to access dept slice LasCurve.D and data curve LasCurve.V
 - make public las.SetActuallyNumberPoints(int)
