@@ -65,9 +65,21 @@ func TestReachingMaxAmountWarnings(t *testing.T) {
 func TestLasOpenSpeсial(t *testing.T) {
 	las := NewLas()
 	n, err := las.Open("")
+
 	assert.Equal(t, 0, n)
 	assert.NotNil(t, err, fmt.Sprintf("<TestLasOpenSpeсial> expect error not nil, got '%v'\n", err))
-	assert.Equal(t, "open : The system cannot find the file specified.", err.Error())
+
+	// If the file is not found different operating systems resport a different message
+	// assert.Equal(t, "open : The system cannot find the file specified.", err.Error())
+	err_bool := false
+	err_msg := err.Error()
+	err_msgs := []string{"open : The system cannot find the file specified.", "open : no such file or directory"}
+	for _, msg := range err_msgs {
+		if msg == err_msg {
+			err_bool = true
+		}
+	}
+	assert.True(t, err_bool)
 
 	n, err = las.Open(fp.Join("data/utf-32be-bom.las"))
 	//this decode not support, return error
