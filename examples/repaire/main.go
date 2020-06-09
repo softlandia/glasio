@@ -13,8 +13,8 @@ import (
 //Пример чтения и сохранения нескольких LAS файлов
 func main() {
 	fileList := make([]string, 0, 10)
-	n := findFilesExt(&fileList, ".\\", ".las")
-	fmt.Printf("files founded: %d\n", n)
+	n := findFilesExt(&fileList, ".", ".las")
+	fmt.Printf("files found: %d\n", n)
 	if n == 0 {
 		os.Exit(0)
 	}
@@ -28,10 +28,10 @@ func repaireLas(fileName string) {
 	las.FileName = fileName
 	fmt.Printf("file: '%s'", fileName)
 	n, err := las.Open(fileName) // считываем файл
-	fmt.Printf(" readed\n")
+	fmt.Printf(" read\n")
 	// примеры проверки прочитанного las файла
 	if las.IsWraped() {
-		fmt.Printf("wraped\n")
+		fmt.Printf("wrapped\n")
 		return
 	}
 	if n == 0 {

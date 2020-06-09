@@ -26,7 +26,7 @@ type tSummaryCheck struct {
 }
 
 var dSummaryCheck = []tSummaryCheck{
-	{fp.Join("data/barebones.las"), 2.0, "NO", -999.25, -999.25, 1.1, -999.25, "", 1, 0, true},
+	{fp.Join("data/barebones.las"), 2.0, "NO", 200, -999.25, 1.1, -999.25, "", 1, 0, true},
 	{fp.Join("data/6038187_v1.2.las"), 2.0, "NO", 0.05, 136.6, 0.05, -99999, "Scorpio E1", 9, 2732, false},
 	{fp.Join("data/6038187_v1.2_short.las"), 2.0, "NO", 0.05, 136.6, 0.05, -99999, "Scorpio E1", 9, 121, false},
 	{fp.Join("data/1001178549.las"), 2.0, "YES", 1783.5, 1784.5, 0.25, -999.25, "1-28", 27, 0, true},
