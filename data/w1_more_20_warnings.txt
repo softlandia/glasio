@@ -1,6 +1,6 @@
 **file: data\more_20_warnings.las**
-0, line: -1,	"__WRN__ STEP parameter equal 0"
-1, line: -1,	"__WRN__ STRT: 0.000 == STOP: 0.000"
+0, line: 23,	"__WRN__ STRT: 0.000 == STOP: 0.000"
+1, line: 23,	"__WRN__ STEP parameter equal 0"
 2, line: 24,	"can't convert string: '6.2.2' to number, set to NULL"
 3, line: 25,	"not all column readed, set log value to NULL"
 4, line: 25,	"not all column readed, set log value to NULL"

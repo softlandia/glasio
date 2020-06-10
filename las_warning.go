@@ -38,7 +38,7 @@ func (o *TWarning) ToCsvString(sep ...string) string {
 	case 1:
 		fieldSep = sep[0]
 	}
-	return fmt.Sprintf("%d%s%d%s\"%s\"", o.section, fieldSep, o.line, fieldSep, o.desc)
+	return fmt.Sprintf("%d%s %d%s \"%s\"", o.section, fieldSep, o.line, fieldSep, o.desc)
 }
 
 //TLasWarnings - class to store and manipulate warnings

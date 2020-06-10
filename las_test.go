@@ -40,28 +40,28 @@ func TestGetMnemonic(t *testing.T) {
 func TestReachingMaxAmountWarnings(t *testing.T) {
 	las := NewLas()
 	las.Open(fp.Join("data/more_20_warnings.las"))
-	// Добавить MaxAmountWarning и остановить подсчет предупреждений
-	// Add a MaxAmountWarning and stop counting warnings.
-	assert.Equal(t, 21, las.Warnings.Count(), fmt.Sprintf("<TestReachingMaxAmountWarnings> on read file data\\more_20_warnings.las warning count: %d\n", las.Warnings.Count()))
+	//by default maximum warning count is 21
+	assert.Equal(t, 21, las.Warnings.Count(), fmt.Sprintf("<TestReachingMaxAmountWarnings> on 'data\\more_20_warnings.las' wrong count warning: %d\n", las.Warnings.Count()))
 
+	// system var glasio.ExpPoints indicates the size of the buffer for the data being read, in order to control the occurrence of the overflow processing
+	// event of this buffer, we reduce this buffer before reading
+	// decrease temporary buffer
 	ExpPoints = 2
 	las = NewLas()
 	las.maxWarningCount = 100
 	las.Open(fp.Join("data/more_20_warnings.las"))
-	assert.Equal(t, 41, las.Warnings.Count(), fmt.Sprintf("<TestReachingMaxAmountWarnings> on read file data\\more_20_warnings.las warning count: %d expected 62\n", las.Warnings.Count()))
+	assert.Equal(t, 41, las.Warnings.Count(), fmt.Sprintf("<TestReachingMaxAmountWarnings> on file 'data\\more_20_warnings.las' wrong warning number: %d expected 41\n", las.Warnings.Count()))
 
-	// SaveWarning () не добавляет к las.Warnings
 	// SaveWarning() does not add to las.Warnings.
 	las.SaveWarning(fp.Join("data/more_20_warnings.wrn"))
-	assert.Equal(t, 41, las.Warnings.Count(), fmt.Sprintf("<TestReachingMaxAmountWarnings> on read file data\\more_20_warnings.las warning count: %d expected 62\n", las.Warnings.Count()))
+	assert.Equal(t, 41, las.Warnings.Count(), fmt.Sprintf("<TestReachingMaxAmountWarnings> after las.SaveWarning() number warning changed: %d expected 41\n", las.Warnings.Count()))
 
-	// Если SaveWarning () не может записать в параметр файла, то это не ноль
-	// If SaveWarning() fails to write to the file parameter, then it is not nil.
+	// test for error occure when SaveWarning() fails to write to the file
 	assert.NotNil(t, las.SaveWarning(""))
 }
 
-//тестируем особые случаи открытия
-//пустые имена файлов, файлы в неправильной кодировке
+//test special cases
+//empty file name, file in wrong encoding
 func TestLasOpenSpeсial(t *testing.T) {
 	las := NewLas()
 	n, err := las.Open("")
@@ -71,15 +71,15 @@ func TestLasOpenSpeсial(t *testing.T) {
 
 	// If the file is not found different operating systems resport a different message
 	// assert.Equal(t, "open : The system cannot find the file specified.", err.Error())
-	err_bool := false
-	err_msg := err.Error()
-	err_msgs := []string{"open : The system cannot find the file specified.", "open : no such file or directory"}
-	for _, msg := range err_msgs {
-		if msg == err_msg {
-			err_bool = true
+	errBool := false
+	errMsg := err.Error()
+	errMsgs := []string{"open : The system cannot find the file specified.", "open : no such file or directory"}
+	for _, msg := range errMsgs {
+		if msg == errMsg {
+			errBool = true
 		}
 	}
-	assert.True(t, err_bool)
+	assert.True(t, errBool)
 
 	n, err = las.Open(fp.Join("data/utf-32be-bom.las"))
 	//this decode not support, return error
@@ -103,12 +103,15 @@ var dLoadHeader = []tLoadHeader{
 	{fp.Join("data/2.0/cp1251_2.0_well_name.las"), 2.0, "NO", 0.0, 39.9, 0.3, -999.25, "Примерная-1 / бис(ё)"},
 	{fp.Join("data/2.0/cp1251_2.0_based.las"), 2.0, "NO", 0.0, 39.9, 0.3, -999.25, "Примерная-1/бис(ё)"},
 	{fp.Join("data/expand_points_01.las"), 1.2, "NO", 1.0, 1.0, 0.1, -9999.00, "12-Сплошная"},
-	{fp.Join("data/more_20_warnings.las"), 1.2, "NO", 0.0, 0.0, 0.0, -32768.0, "6"}, //in las file STEP=0.0 but this incorrect, LoadHeader replace STEP to actual from data
 	{fp.Join("data/expand_points_01.las"), 1.2, "NO", 1.0, 1.0, 0.1, -9999.0, "12-Сплошная"},
 	{fp.Join("data/1.2/sample.las"), 1.2, "NO", 1670.0, 1660.0, -0.1250, -999.2500, "ANY ET AL OIL WELL #12"},
 	{fp.Join("data/2.0/sample_2.0.las"), 2.0, "NO", 1670.0, 1660.0, -0.1250, -999.2500, "AAAAA_2"},
-	{fp.Join("data/duplicate_step.las"), 1.2, "NO", 1670.0, 1660.0, -0.1200, -999.2500, "ANY ET AL OIL WELL #12"}, //duplicate_step.las contains two line with STEP:: STEP.M -0.1250: STEP.M -0.1200: using LAST parameter
-	{fp.Join("data/encodings_utf8.las"), 1.2, "NO", 1670.0, 1660.0, -0.1250, -999.2500, "Скв #12Ω"},
+	{fp.Join("data/broken_parameter.las"), 2.0, "NO", 0.0, 39.9, 0.3, -999.25, "Примерная-1 / бис(ё)"},            // file contain error on STRT
+	{fp.Join("data/broken_header.las"), 2.0, "NO", 0.0, 39.9, 0.3, -999.25, "Примерная-1 / бис(ё)"},               // file contain only part of header
+	{fp.Join("data/more_20_warnings.las"), 1.2, "NO", 0.0, 0.0, 0.0, -32768.0, "6"},                               // TODO STEP=0.0 but this incorrect, LoadHeader must replace STEP to actual from data
+	{fp.Join("data/duplicate_step.las"), 1.2, "NO", 1670.0, 1660.0, -0.1200, -999.2500, "ANY ET AL OIL WELL #12"}, // duplicate_step.las contains two line with STEP:: STEP.M -0.1250: STEP.M -0.1200: using LAST parameter
+	{fp.Join("data/encodings_utf8.las"), 1.2, "NO", 1670.0, 1660.0, -0.1250, -999.2500, "Скв #12Ω"},               // well name contain unicode char
+	{fp.Join("test_files/warning-test-files/01-STOP-02.las"), 2.0, "NO", 0.0, -999.2500, 0.1, -999.25, "Скв #12"}, // STOP not exist
 }
 
 func TestLoadHeader(t *testing.T) {

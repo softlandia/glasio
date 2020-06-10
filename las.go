@@ -58,14 +58,18 @@ const (
 	lasSecData     = 4
 )
 
-// LasWellInfo - contain parameters of Well section
-type LasWellInfo struct {
-	ver       float64
-	wrap      string
-	wellName  string
-	null      float64
-	oCodepage cpd.IDCodePage //TODO проверить нужно ли это поле
+// HeaderParam - any parameter of LAS
+type HeaderParam struct {
+	lineNo  int // number of line in source file
+	source, // text line from source file contain this parameter
+	name, // name of parameter: STOP, WELL, SP - curve name also
+	Val, // parameter value
+	Unit, // unit of parameter
+	Description string // descrioption of parameter
 }
+
+// HeaderSection - contain parameters of Well section
+type HeaderSection map[string]HeaderParam
 
 // Las - class to store las file
 // input code page autodetect
@@ -97,11 +101,17 @@ type Las struct {
 	currentLine     int                //index of current line in readed file
 	maxWarningCount int                //default maximum warning count
 	stdNull         float64            //default null value
-
+	VerSec,
+	WellSec,
+	CurSec,
+	ParSec,
+	OthSec HeaderSection
 }
 
 var (
-	// ExpPoints - ожидаемое количество точек данных, до чтения мы не можем знать сколько точек будет фактически прочитано
+	// ExpPoints - первоначальный размер слайсов для хранения данных Logs.D и Logs.V
+	// ожидаемое количество точек данных, до чтения мы не можем знать сколько точек будет фактически прочитано
+	// данные увеличиваются при необходимости и обрезаются после окончания чтения
 	ExpPoints int = 1000
 	// StdNull - пустое значение
 	StdNull float64 = -999.25
@@ -120,6 +130,11 @@ func NewLas(outputCP ...cpd.IDCodePage) *Las {
 	// избавит от необходимости довыделять память при чтении
 	las.ePoints = ExpPoints
 	las.Logs = make(map[string]LasCurve)
+	las.VerSec = make(HeaderSection)
+	las.WellSec = make(HeaderSection)
+	las.CurSec = make(HeaderSection)
+	las.ParSec = make(HeaderSection)
+	las.OthSec = make(HeaderSection)
 	las.maxWarningCount = MaxWarningCount
 	las.stdNull = StdNull
 	las.Strt = StdNull
@@ -276,7 +291,7 @@ func (las *Las) Open(fileName string) (int, error) {
 	if r.stepWrong() {
 		h := las.GetStepFromData() // return las.Null if cannot calculate step from data
 		if h == las.Null {
-			las.addWarning(TWarning{directOnRead, lasSecWellInfo, -1, fmt.Sprint("__WRN__ STEP parameter on data is wrong")})
+			las.addWarning(TWarning{directOnRead, lasSecWellInfo, las.currentLine, fmt.Sprint("__WRN__ STEP parameter on data is wrong")})
 		}
 		las.setStep(h)
 	}
@@ -297,7 +312,7 @@ func (las *Las) storeHeaderWarning(chkResults CheckResults) {
 3. если начало секции, определяем какой
 4. если началась секция данных заканчиваем
 5. читаем одну строку (это один параметер из известной нам секции)
-   Пока ошибку всегда возвращает nil, причин возвращать другое значение пока нет.
+   Пока всегда возвращает nil, причин возвращать другое значение пока нет.
 */
 func (las *Las) LoadHeader() error {
 	s := ""
@@ -312,13 +327,40 @@ func (las *Las) LoadHeader() error {
 		if s[0] == '~' { //start new section
 			secNum = las.selectSection(rune(s[1]))
 			if secNum == lasSecData {
-				break // dAta section read after //exit from for
+				break // reached the dAta section, stop load header
 			}
 		} else {
 			//if not comment, not empty and not new section => parameter, read it
 			err = las.ReadParameter(s, secNum)
 			if err != nil {
-				las.addWarning(TWarning{directOnRead, secNum, -1, fmt.Sprintf("while process parameter: '%s' occure error: %v", s, err)})
+				las.addWarning(TWarning{directOnRead, secNum, las.currentLine, fmt.Sprintf("param: '%s' error: %v", s, err)})
+			}
+		}
+	}
+	return nil
+}
+
+func (las *Las) LoadHeader2() error {
+	s := ""
+	var err error
+	//sec := las.VerSec
+	secNum := 0
+	for i := 0; las.scanner.Scan(); i++ {
+		s = strings.TrimSpace(las.scanner.Text())
+		las.currentLine++
+		if isIgnoredLine(s) {
+			continue
+		}
+		if s[0] == '~' { //start new section
+			secNum = las.selectSection(rune(s[1]))
+			if secNum == lasSecData {
+				break // reached the dAta section, stop load header
+			}
+		} else {
+			//if not comment, not empty and not new section => parameter, read it
+			err = las.ReadParameter(s, secNum)
+			if err != nil {
+				las.addWarning(TWarning{directOnRead, secNum, las.currentLine, fmt.Sprintf("param: '%s' error: %v", s, err)})
 			}
 		}
 	}

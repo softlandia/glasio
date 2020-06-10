@@ -132,37 +132,37 @@ func NewStdChecker() Checker {
 // результат проверки возвращаем всегда с готовым варнингом и ошибкой,
 // уже в дальнейшем, те проверки у которых res == true не вносятся в итоговый отчёт
 func stepExistCheck(chk Check, las *Las) CheckRes {
-	return CheckRes{chk.name, TWarning{directOnRead, lasSecWellInfo, -1, "__WRN__ parameter STEP not exist"}, nil, !las.IsStepEmpty()}
+	return CheckRes{chk.name, TWarning{directOnRead, lasSecWellInfo, las.currentLine, "__WRN__ parameter STEP not exist"}, nil, !las.IsStepEmpty()}
 }
 
 func stopExistCheck(chk Check, las *Las) CheckRes {
-	return CheckRes{chk.name, TWarning{directOnRead, lasSecWellInfo, -1, "__WRN__ parameter STOP not exist"}, nil, !las.IsStopEmpty()}
+	return CheckRes{chk.name, TWarning{directOnRead, lasSecWellInfo, las.currentLine, "__WRN__ parameter STOP not exist"}, nil, !las.IsStopEmpty()}
 }
 
 func strtExistCheck(chk Check, las *Las) CheckRes {
-	return CheckRes{chk.name, TWarning{directOnRead, lasSecWellInfo, -1, "__WRN__ parameter STRT not exist"}, nil, !las.IsStrtEmpty()}
+	return CheckRes{chk.name, TWarning{directOnRead, lasSecWellInfo, las.currentLine, "__WRN__ parameter STRT not exist"}, nil, !las.IsStrtEmpty()}
 }
 
 func wrapCheck(chk Check, las *Las) CheckRes {
-	return CheckRes{chk.name, TWarning{directOnRead, lasSecVersion, -1, "__ERR__ WRAP = YES, file ignored"}, fmt.Errorf("Wrapped files not support"), !las.IsWraped()}
+	return CheckRes{chk.name, TWarning{directOnRead, lasSecVersion, las.currentLine, "__ERR__ WRAP = YES, file ignored"}, fmt.Errorf("Wrapped files not support"), !las.IsWraped()}
 }
 
 func curvesIsEmpty(chk Check, las *Las) CheckRes {
-	return CheckRes{chk.name, TWarning{directOnRead, lasSecCurInfo, -1, "__ERR__ Curve section is empty, file ignored"}, fmt.Errorf("Curve section not exist"), len(las.Logs) > 0}
+	return CheckRes{chk.name, TWarning{directOnRead, lasSecCurInfo, las.currentLine, "__ERR__ Curve section is empty, file ignored"}, fmt.Errorf("Curve section not exist"), len(las.Logs) > 0}
 }
 
 func stepCheck(chk Check, las *Las) CheckRes {
-	return CheckRes{chk.name, TWarning{directOnRead, lasSecWellInfo, -1, fmt.Sprint("__WRN__ STEP parameter equal 0")}, nil, las.Step != 0.0}
+	return CheckRes{chk.name, TWarning{directOnRead, lasSecWellInfo, las.currentLine, fmt.Sprint("__WRN__ STEP parameter equal 0")}, nil, las.Step != 0.0}
 }
 
 func nullCheck(chk Check, las *Las) CheckRes {
-	return CheckRes{chk.name, TWarning{directOnRead, lasSecWellInfo, -1, fmt.Sprint("__WRN__ NULL parameter equal 0")}, nil, las.Null != 0.0}
+	return CheckRes{chk.name, TWarning{directOnRead, lasSecWellInfo, las.currentLine, fmt.Sprint("__WRN__ NULL parameter equal 0")}, nil, las.Null != 0.0}
 }
 
 func strtStop(chk Check, las *Las) CheckRes {
-	return CheckRes{chk.name, TWarning{directOnRead, lasSecWellInfo, -1, fmt.Sprintf("__WRN__ STRT: %4.3f == STOP: %4.3f", las.Strt, las.Stop)}, nil, las.Strt != las.Stop}
+	return CheckRes{chk.name, TWarning{directOnRead, lasSecWellInfo, las.currentLine, fmt.Sprintf("__WRN__ STRT: %4.3f == STOP: %4.3f", las.Strt, las.Stop)}, nil, las.Strt != las.Stop}
 }
 
 func wellIsEmpty(chk Check, las *Las) CheckRes {
-	return CheckRes{chk.name, TWarning{directOnRead, lasSecWellInfo, -1, fmt.Sprintf("__WRN__ WELL: '%s' is empty", las.Well)}, nil, len(las.Well) != 0}
+	return CheckRes{chk.name, TWarning{directOnRead, lasSecWellInfo, las.currentLine, fmt.Sprintf("__WRN__ WELL: '%s' is empty", las.Well)}, nil, len(las.Well) != 0}
 }

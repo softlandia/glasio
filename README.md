@@ -53,3 +53,14 @@ lasin
 
 coverage 91%  
 folder "data" contain files for testing, no remove/change/add
+
+## warnings generated when reading a LAS file ##
+
+### warning format ###
+
+extended:  
+> x, y, "message text"  
+> x - section number  
+> y - line number of input file  
+
+short:  
