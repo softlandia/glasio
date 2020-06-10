@@ -55,6 +55,11 @@ func (crs CheckResults) curvesWrong() bool {
 	return ok
 }
 
+func (crs CheckResults) strtWrong() bool {
+	_, ok := crs["STRT"]
+	return ok
+}
+
 func (crs CheckResults) strtStopWrong() bool {
 	_, ok := crs["SSTP"]
 	return ok
