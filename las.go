@@ -78,29 +78,30 @@ type HeaderSection map[string]HeaderParam
 //TODO add pointer to cfg
 //TODO при создании объекта las есть возможность указать кодировку записи, нужна возможность указать явно кодировку чтения
 type Las struct {
-	FileName        string             //file name from load
-	File            *os.File           //the file from which we are reading
-	Reader          io.Reader          //reader created from File, provides decode from codepage to UTF-8
-	scanner         *bufio.Scanner     //scanner
-	Ver             float64            //version 1.0, 1.2 or 2.0
-	Wrap            string             //YES || NO
-	Strt            float64            //start depth
-	Stop            float64            //stop depth
-	Step            float64            //depth step
-	Null            float64            //value interpreted as empty
-	Well            string             //well name
-	Rkb             float64            //altitude KB
-	Logs            LasCurves          //store all logs
-	LogDic          *map[string]string //external dictionary of standart log name - mnemonics
-	VocDic          *map[string]string //external vocabulary dictionary of log mnemonic
-	Warnings        TLasWarnings       //slice of warnings occure on read or write
-	ePoints         int                //expected count (.)
-	nPoints         int                //actually count (.)
-	oCodepage       cpd.IDCodePage     //codepage to save, default xlib.CpWindows1251. to special value, specify at make: NewLas(cp...)
-	iDuplicate      int                //индекс повторящейся мнемоники, увеличивается на 1 при нахождении дубля, начально 0
-	currentLine     int                //index of current line in readed file
-	maxWarningCount int                //default maximum warning count
-	stdNull         float64            //default null value
+	rows            []string           // buffer for read source file, only converted to UTF-8 no any othe change
+	FileName        string             // file name from load
+	File            *os.File           // the file from which we are reading
+	Reader          io.Reader          // reader created from File, provides decode from codepage to UTF-8
+	scanner         *bufio.Scanner     // scanner
+	Ver             float64            // version 1.0, 1.2 or 2.0
+	Wrap            string             // YES || NO
+	Strt            float64            // start depth
+	Stop            float64            // stop depth
+	Step            float64            // depth step
+	Null            float64            // value interpreted as empty
+	Well            string             // well name
+	Rkb             float64            // altitude KB
+	Logs            LasCurves          // store all logs
+	LogDic          *map[string]string // external dictionary of standart log name - mnemonics
+	VocDic          *map[string]string // external vocabulary dictionary of log mnemonic
+	Warnings        TLasWarnings       // slice of warnings occure on read or write
+	ePoints         int                // expected count (.)
+	nPoints         int                // actually count (.)
+	oCodepage       cpd.IDCodePage     // codepage to save, default xlib.CpWindows1251. to special value, specify at make: NewLas(cp...)
+	iDuplicate      int                // index of duplicated mnemonic, increase by 1 if found duplicated
+	currentLine     int                // index of current line in readed file
+	maxWarningCount int                // default maximum warning count
+	stdNull         float64            // default null value
 	VerSec,
 	WellSec,
 	CurSec,
@@ -129,6 +130,7 @@ func NewLas(outputCP ...cpd.IDCodePage) *Las {
 	// до того как прочитаем данные мы не можем знать сколько их фактически, предполагаем что 1000, достаточно большой буфер
 	// избавит от необходимости довыделять память при чтении
 	las.ePoints = ExpPoints
+	las.rows = make([]string, ExpPoints)
 	las.Logs = make(map[string]LasCurve)
 	las.VerSec = make(HeaderSection)
 	las.WellSec = make(HeaderSection)
@@ -304,6 +306,58 @@ func (las *Las) Open(fileName string) (int, error) {
 		las.setStep(h)
 	}
 	return las.ReadDataSec(fileName)
+}
+
+// ReadRows -
+func (las *Las) ReadRows() error {
+	return nil
+}
+
+// Open2 -
+func (las *Las) Open2(fileName string) (int, error) {
+	var err error
+	las.File, err = os.Open(fileName)
+	if err != nil {
+		return 0, err //FATAL error - file not exist
+	}
+	defer las.File.Close()
+	las.FileName = fileName
+	//create and store Reader, this reader decode to UTF-8
+	las.Reader, err = cpd.NewReader(las.File)
+	if err != nil {
+		return 0, err //FATAL error - file cannot be decoded to UTF-8
+	}
+	// prepare file to read
+	las.scanner = bufio.NewScanner(las.Reader)
+	las.ReadRows()
+	las.currentLine = 0
+	las.LoadHeader2()
+	stdChecker := NewStdChecker()
+	// check for FATAL errors
+	r := stdChecker.check(las)
+	las.storeHeaderWarning(r)
+	if err = r.fatal(); err != nil {
+		return 0, err
+	}
+	if r.nullWrong() {
+		las.SetNull(las.stdNull)
+	}
+	if r.strtWrong() {
+		h := las.GetStrtFromData() // return las.Null if cannot find strt in the data section.
+		if h == las.Null {
+			las.addWarning(TWarning{directOnRead, lasSecWellInfo, -1, fmt.Sprint("__WRN__ STRT parameter on data is wrong setting to 0")})
+			las.setStrt(0)
+		}
+		las.setStrt(h)
+	}
+	if r.stepWrong() {
+		h := las.GetStepFromData() // return las.Null if cannot calculate step from data
+		if h == las.Null {
+			las.addWarning(TWarning{directOnRead, lasSecWellInfo, las.currentLine, fmt.Sprint("__WRN__ STEP parameter on data is wrong")})
+		}
+		las.setStep(h)
+	}
+	return las.ReadDataSec2(fileName)
 }
 
 // saveHeaderWarning - забирает и сохраняет варнинги от всех проверок
@@ -525,6 +579,114 @@ func isSeparator(r rune) bool {
 
 // ReadDataSec - read section of data
 func (las *Las) ReadDataSec(fileName string) (int, error) {
+	var (
+		v    float64
+		err  error
+		d    *LasCurve
+		l    *LasCurve
+		dept float64
+		i    int
+	)
+
+	// исходя из параметров STRT, STOP и STEP определяем ожидаемое количество строк данных
+	// данную операцию уже выполняли много раз при считывании кривых
+	las.ePoints = las.GetExpectedPointsCount(las.Strt, las.Stop, las.Step)
+	n := len(las.Logs)       //количество каротажей, столько колонок данных ожидаем
+	d, _ = las.logByIndex(0) //dept log
+	s := ""
+	for i = 0; las.scanner.Scan(); i++ {
+		las.currentLine++
+		if i == las.ePoints {
+			las.expandDept(d)
+		}
+		s = strings.TrimSpace(las.scanner.Text())
+		// i счётчик не считанных строк, а фактически считанных данных - счётчик добавлений в слайсы данных
+		//TODO возможно следует завести отдельный счётчик и оставить в покое счётчик цикла
+		if isIgnoredLine(s) {
+			i--
+			continue
+		}
+		//first column is DEPT
+		k := strings.IndexFunc(s, isSeparator)
+		if k < 0 { //line must have n+1 column and n separated spaces block (+1 becouse first column DEPT)
+			las.addWarning(TWarning{directOnRead, lasSecData, las.currentLine, fmt.Sprintf("line: %d is empty, ignore", las.currentLine)})
+			i--
+			continue
+		}
+		dept, err = strconv.ParseFloat(s[:k], 64)
+		if err != nil {
+			las.addWarning(TWarning{directOnRead, lasSecData, las.currentLine, fmt.Sprintf("first column '%s' not numeric, ignore", s[:k])})
+			i--
+			continue
+		}
+		d.D[i] = dept
+		// проверка шага у первых двух точек данных и сравнение с параметром step
+		//TODO данную проверку следует делать через Checker
+		if i > 1 {
+			if math.Pow(((dept-d.D[i-1])-las.Step), 2) > 0.1 {
+				las.addWarning(TWarning{directOnRead, lasSecData, las.currentLine, fmt.Sprintf("actual step %5.2f ≠ global STEP %5.2f", (dept - d.D[i-1]), las.Step)})
+			}
+		}
+		// проверка шага между точками [i-1, i] и точками [i-2, i-1] обнаружение немонотонности колонки глубин
+		if i > 2 {
+			if math.Pow(((dept-d.D[i-1])-(d.D[i-1]-d.D[i-2])), 2) > 0.1 {
+				las.addWarning(TWarning{directOnRead, lasSecData, las.currentLine, fmt.Sprintf("step %5.2f ≠ previously step %5.2f", (dept - d.D[i-1]), (d.D[i-1] - d.D[i-2]))})
+				dept = d.D[i-1] + las.Step
+			}
+		}
+
+		s = strings.TrimSpace(s[k+1:]) //cut first column
+		//цикл по каротажам
+		for j := 1; j < (n - 1); j++ {
+			iSpace := strings.IndexFunc(s, isSeparator)
+			switch iSpace {
+			case -1: //не все колонки прочитаны, а разделителей уже нет... пробуем игнорировать сроку заполняя оставшиеся каротажи NULLами
+				las.addWarning(TWarning{directOnRead, lasSecData, las.currentLine, "not all column are read, set log value to NULL"})
+			case 0:
+				v = las.Null
+			case 1:
+				v, err = strconv.ParseFloat(s[:1], 64)
+			default:
+				v, err = strconv.ParseFloat(s[:iSpace], 64)
+			}
+			if err != nil {
+				las.addWarning(TWarning{directOnRead, lasSecData, las.currentLine, fmt.Sprintf("can't convert string: '%s' to number, set to NULL", s[:iSpace-1])})
+				v = las.Null
+			}
+			l, err = las.logByIndex(j)
+			if err != nil {
+				las.nPoints = i
+				return i, errors.New("internal ERROR, func (las *Las) readDataSec()::las.logByIndex(j) return error")
+			}
+			l.D[i] = dept
+			l.V[i] = v
+			s = strings.TrimSpace(s[iSpace+1:])
+		}
+		//остаток - последняя колонка
+		v, err = strconv.ParseFloat(s, 64)
+		if err != nil {
+			las.addWarning(TWarning{directOnRead, lasSecData, las.currentLine, "not all column are read, set log value to NULL"})
+			v = las.Null
+		}
+		l, err = las.logByIndex(n - 1)
+		if err != nil {
+			las.nPoints = i
+			return i, errors.New("internal ERROR, func (las *Las) readDataSec()::las.logByIndex(j) return error on last column")
+		}
+		l.D[i] = dept
+		l.V[i] = v
+	}
+	//i - actually readed lines and add (.) to data array
+	//crop logs to actually len
+	err = las.SetActuallyNumberPoints(i)
+	if err != nil {
+		return 0, err
+	}
+	return i, nil
+}
+
+// ReadDataSec2 - read from rows
+func (las *Las) ReadDataSec2(fileName string) (int, error) {
 	var (
 		v    float64
 		err  error

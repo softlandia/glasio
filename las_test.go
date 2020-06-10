@@ -174,6 +174,7 @@ type tGetDataStrt struct {
 var dGetDataStrt = []tGetDataStrt{
 	{fp.Join("data/2.0/sample_2.0_missing_strt.las"), 1670.000},
 	{fp.Join("data/2.0/sample_2.0.las"), 1670.000},
+	{fp.Join(""), -999.25},
 }
 
 func TestGetStrtFromData(t *testing.T) {
