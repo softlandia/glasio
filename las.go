@@ -288,6 +288,14 @@ func (las *Las) Open(fileName string) (int, error) {
 	if r.nullWrong() {
 		las.SetNull(las.stdNull)
 	}
+	if r.strtWrong() {
+		h := las.GetStrtFromData() // return las.Null if cannot find strt in the data section.
+		if h == las.Null {
+			las.addWarning(TWarning{directOnRead, lasSecWellInfo, -1, fmt.Sprint("__WRN__ STRT parameter on data is wrong setting to 0")})
+			las.setStrt(0)
+		}
+		las.setStrt(h)
+	}
 	if r.stepWrong() {
 		h := las.GetStepFromData() // return las.Null if cannot calculate step from data
 		if h == las.Null {
@@ -327,7 +335,7 @@ func (las *Las) LoadHeader() error {
 		if s[0] == '~' { //start new section
 			secNum = las.selectSection(rune(s[1]))
 			if secNum == lasSecData {
-				break // reached the dAta section, stop load header
+				break // reached the data section, stop load header
 			}
 		} else {
 			//if not comment, not empty and not new section => parameter, read it
@@ -340,6 +348,7 @@ func (las *Las) LoadHeader() error {
 	return nil
 }
 
+// LoadHeader2 - new version, after test will be replace verion LoadHeader
 func (las *Las) LoadHeader2() error {
 	s := ""
 	var err error
@@ -354,7 +363,7 @@ func (las *Las) LoadHeader2() error {
 		if s[0] == '~' { //start new section
 			secNum = las.selectSection(rune(s[1]))
 			if secNum == lasSecData {
-				break // reached the dAta section, stop load header
+				break // reached the data section, stop load header
 			}
 		} else {
 			//if not comment, not empty and not new section => parameter, read it
@@ -578,7 +587,7 @@ func (las *Las) ReadDataSec(fileName string) (int, error) {
 			iSpace := strings.IndexFunc(s, isSeparator)
 			switch iSpace {
 			case -1: //не все колонки прочитаны, а разделителей уже нет... пробуем игнорировать сроку заполняя оставшиеся каротажи NULLами
-				las.addWarning(TWarning{directOnRead, lasSecData, las.currentLine, "not all column readed, set log value to NULL"})
+				las.addWarning(TWarning{directOnRead, lasSecData, las.currentLine, "not all column are read, set log value to NULL"})
 			case 0:
 				v = las.Null
 			case 1:
@@ -602,7 +611,7 @@ func (las *Las) ReadDataSec(fileName string) (int, error) {
 		//остаток - последняя колонка
 		v, err = strconv.ParseFloat(s, 64)
 		if err != nil {
-			las.addWarning(TWarning{directOnRead, lasSecData, las.currentLine, "not all column readed, set log value to NULL"})
+			las.addWarning(TWarning{directOnRead, lasSecData, las.currentLine, "not all column are read, set log value to NULL"})
 			v = las.Null
 		}
 		l, err = las.logByIndex(n - 1)
@@ -747,11 +756,48 @@ func (las *Las) IsEmpty() bool {
 	return (las.Logs == nil)
 }
 
+// GetStrtFromData - return strt from data section
+// read 1 line from section ~A and determine strt
+// close file
+// return Null if error occurs
+func (las *Las) GetStrtFromData() float64 {
+	iFile, err := os.Open(las.FileName)
+	if err != nil {
+		return las.Null
+	}
+	defer iFile.Close()
+
+	_, iScanner, err := xlib.SeekFileStop(las.FileName, "~A")
+	if (err != nil) || (iScanner == nil) {
+		return las.Null
+	}
+
+	s := ""
+	dept1 := 0.0
+	for i := 0; iScanner.Scan(); i++ {
+		s = strings.TrimSpace(iScanner.Text())
+		if (len(s) == 0) || (s[0] == '#') {
+			continue
+		}
+		k := strings.IndexRune(s, ' ')
+		if k < 0 {
+			k = len(s)
+		}
+		dept1, err = strconv.ParseFloat(s[:k], 64)
+		if err != nil {
+			return las.Null
+		}
+		return dept1
+	}
+	//если мы попали сюда, то всё грусно, в файле после ~A не нашлось двух строчек с данными... или пустые строчки или комменты
+	// TODO последняя строка "return las.Null" не обрабатывается в тесте
+	return las.Null
+}
+
 // GetStepFromData - return step from data section
 // read 2 line from section ~A and determine step
 // close file
 // return Null if error occure
-// если делать функцией, не методом, то придётся NULL передавать. а оно надо вообще
 func (las *Las) GetStepFromData() float64 {
 	iFile, err := os.Open(las.FileName)
 	if err != nil {
@@ -779,21 +825,27 @@ func (las *Las) GetStepFromData() float64 {
 		}
 		dept1, err = strconv.ParseFloat(s[:k], 64)
 		if err != nil {
+			// case if the data row in the first position (dept place) contains not a number
 			return las.Null
 		}
 		j++
 		if j == 2 {
+			// good case, found two points and determined the step
 			return math.Round((dept1-dept2)*10) / 10
 		}
 		dept2 = dept1
 	}
-	//если мы попали сюда, то всё грусно, в файле после ~A не нашлось двух строчек с данными... или пустые строчки или комменты
-	// TODO последняя строка "return las.Null" не обрабатывается в тесте
+	//bad case, data section not contain two rows with depth
+	//TODO последняя строка "return las.Null" не обрабатывается в тесте
 	return las.Null
 }
 
 func (las *Las) setStep(h float64) {
 	las.Step = h
+}
+
+func (las *Las) setStrt(h float64) {
+	las.Strt = h
 }
 
 // IsStrtEmpty - return true if parameter Strt not exist in file

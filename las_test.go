@@ -166,6 +166,24 @@ func TestLasSaveWarning(t *testing.T) {
 	assert.Equal(t, 21, n)
 }
 
+type tGetDataStrt struct {
+	fn string
+	st float64
+}
+
+var dGetDataStrt = []tGetDataStrt{
+	{fp.Join("data/2.0/sample_2.0_missing_strt.las"), 1670.000},
+	{fp.Join("data/2.0/sample_2.0.las"), 1670.000},
+}
+
+func TestGetStrtFromData(t *testing.T) {
+	for _, tmp := range dGetDataStrt {
+		las := NewLas()
+		las.Open(tmp.fn)
+		assert.Equal(t, tmp.st, las.Strt, fmt.Sprintf("<TestGetStepFromData> fail on file '%s' \n", tmp.fn))
+	}
+}
+
 type tGetDataStep struct {
 	fn string
 	st float64
