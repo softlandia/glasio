@@ -79,6 +79,7 @@ type HeaderSection map[string]HeaderParam
 //TODO при создании объекта las есть возможность указать кодировку записи, нужна возможность указать явно кодировку чтения
 type Las struct {
 	rows            []string           // buffer for read source file, only converted to UTF-8 no any othe change
+	nRows           int                // actually count of lines in source file
 	FileName        string             // file name from load
 	File            *os.File           // the file from which we are reading
 	Reader          io.Reader          // reader created from File, provides decode from codepage to UTF-8
@@ -130,7 +131,8 @@ func NewLas(outputCP ...cpd.IDCodePage) *Las {
 	// до того как прочитаем данные мы не можем знать сколько их фактически, предполагаем что 1000, достаточно большой буфер
 	// избавит от необходимости довыделять память при чтении
 	las.ePoints = ExpPoints
-	las.rows = make([]string, ExpPoints)
+	las.nRows = ExpPoints
+	las.rows = make([]string, 0, las.nRows)
 	las.Logs = make(map[string]LasCurve)
 	las.VerSec = make(HeaderSection)
 	las.WellSec = make(HeaderSection)
@@ -308,9 +310,17 @@ func (las *Las) Open(fileName string) (int, error) {
 	return las.ReadDataSec(fileName)
 }
 
-// ReadRows -
-func (las *Las) ReadRows() error {
-	return nil
+// GetRows - get internal field 'rows'
+func (las *Las) GetRows() []string {
+	return las.rows
+}
+
+// ReadRows - reads to buffer 'rows' and return total count of read lines
+func (las *Las) ReadRows() int {
+	for i := 0; las.scanner.Scan(); i++ {
+		las.rows = append(las.rows, las.scanner.Text())
+	}
+	return len(las.rows)
 }
 
 // Open2 -
@@ -322,16 +332,16 @@ func (las *Las) Open2(fileName string) (int, error) {
 	}
 	defer las.File.Close()
 	las.FileName = fileName
-	//create and store Reader, this reader decode to UTF-8
+	//create Reader, this reader decode to UTF-8
 	las.Reader, err = cpd.NewReader(las.File)
 	if err != nil {
 		return 0, err //FATAL error - file cannot be decoded to UTF-8
 	}
 	// prepare file to read
 	las.scanner = bufio.NewScanner(las.Reader)
-	las.ReadRows()
-	las.currentLine = 0
-	las.LoadHeader2()
+	las.ePoints = las.ReadRows()
+	//las.currentLine = 0
+	m, _ := las.LoadHeader2()
 	stdChecker := NewStdChecker()
 	// check for FATAL errors
 	r := stdChecker.check(las)
@@ -357,7 +367,35 @@ func (las *Las) Open2(fileName string) (int, error) {
 		}
 		las.setStep(h)
 	}
-	return las.ReadDataSec2(fileName)
+	return m, nil //las.ReadDataSec2(m)
+}
+
+// LoadHeader2 - new version, after test will be replace verion LoadHeader
+// returns the row number with which the data section begins, contain ~A
+func (las *Las) LoadHeader2() (int, error) {
+	s := ""
+	var err error
+	secNum := 0
+	for i := 0; i < len(las.rows); i++ {
+		s = strings.TrimSpace(las.rows[i])
+		las.currentLine++
+		if isIgnoredLine(s) {
+			continue
+		}
+		if s[0] == '~' { //start new section
+			secNum = las.selectSection(rune(s[1]))
+			if secNum == lasSecData {
+				break // reached the data section, stop load header
+			}
+		} else {
+			//if not comment, not empty and not new section => parameter, read it
+			err = las.ReadParameter(s, secNum)
+			if err != nil {
+				las.addWarning(TWarning{directOnRead, secNum, i, fmt.Sprintf("param: '%s' error: %v", s, err)})
+			}
+		}
+	}
+	return las.currentLine, nil
 }
 
 // saveHeaderWarning - забирает и сохраняет варнинги от всех проверок
@@ -379,34 +417,6 @@ func (las *Las) storeHeaderWarning(chkResults CheckResults) {
 func (las *Las) LoadHeader() error {
 	s := ""
 	var err error
-	secNum := 0
-	for i := 0; las.scanner.Scan(); i++ {
-		s = strings.TrimSpace(las.scanner.Text())
-		las.currentLine++
-		if isIgnoredLine(s) {
-			continue
-		}
-		if s[0] == '~' { //start new section
-			secNum = las.selectSection(rune(s[1]))
-			if secNum == lasSecData {
-				break // reached the data section, stop load header
-			}
-		} else {
-			//if not comment, not empty and not new section => parameter, read it
-			err = las.ReadParameter(s, secNum)
-			if err != nil {
-				las.addWarning(TWarning{directOnRead, secNum, las.currentLine, fmt.Sprintf("param: '%s' error: %v", s, err)})
-			}
-		}
-	}
-	return nil
-}
-
-// LoadHeader2 - new version, after test will be replace verion LoadHeader
-func (las *Las) LoadHeader2() error {
-	s := ""
-	var err error
-	//sec := las.VerSec
 	secNum := 0
 	for i := 0; las.scanner.Scan(); i++ {
 		s = strings.TrimSpace(las.scanner.Text())
@@ -686,7 +696,7 @@ func (las *Las) ReadDataSec(fileName string) (int, error) {
 }
 
 // ReadDataSec2 - read from rows
-func (las *Las) ReadDataSec2(fileName string) (int, error) {
+func (las *Las) ReadDataSec2(m int) (int, error) {
 	var (
 		v    float64
 		err  error
@@ -695,36 +705,24 @@ func (las *Las) ReadDataSec2(fileName string) (int, error) {
 		dept float64
 		i    int
 	)
-
-	// исходя из параметров STRT, STOP и STEP определяем ожидаемое количество строк данных
-	// данную операцию уже выполняли много раз при считывании кривых
-	las.ePoints = las.GetExpectedPointsCount(las.Strt, las.Stop, las.Step)
+	las.ePoints = len(las.rows)
 	n := len(las.Logs)       //количество каротажей, столько колонок данных ожидаем
 	d, _ = las.logByIndex(0) //dept log
 	s := ""
-	for i = 0; las.scanner.Scan(); i++ {
-		las.currentLine++
-		if i == las.ePoints {
-			las.expandDept(d)
-		}
-		s = strings.TrimSpace(las.scanner.Text())
-		// i счётчик не считанных строк, а фактически считанных данных - счётчик добавлений в слайсы данных
-		//TODO возможно следует завести отдельный счётчик и оставить в покое счётчик цикла
+	for i = m; i < len(las.rows); i++ {
+		s = strings.TrimSpace(las.rows[i])
 		if isIgnoredLine(s) {
-			i--
 			continue
 		}
 		//first column is DEPT
 		k := strings.IndexFunc(s, isSeparator)
 		if k < 0 { //line must have n+1 column and n separated spaces block (+1 becouse first column DEPT)
 			las.addWarning(TWarning{directOnRead, lasSecData, las.currentLine, fmt.Sprintf("line: %d is empty, ignore", las.currentLine)})
-			i--
 			continue
 		}
 		dept, err = strconv.ParseFloat(s[:k], 64)
 		if err != nil {
 			las.addWarning(TWarning{directOnRead, lasSecData, las.currentLine, fmt.Sprintf("first column '%s' not numeric, ignore", s[:k])})
-			i--
 			continue
 		}
 		d.D[i] = dept
