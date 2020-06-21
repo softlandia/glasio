@@ -1,4 +1,11 @@
-﻿## ver 0.1.11 // 2020.06.2 ##
+﻿## ver 0.2.0 // 2020.06.21 ##
+
+- replace las.Logs to slice
+- full change ReadDataSec 
+- full change SaveToBuf 
+- change format of Warning
+
+## ver 0.1.11 // 2020.06.2 ##
 
 - add new check on read
 - add example/lasin -- very simple but useful 

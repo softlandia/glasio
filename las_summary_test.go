@@ -20,13 +20,13 @@ type tSummaryCheck struct {
 	step float64
 	null float64
 	well string
-	curv int //количество кривых в файле
-	nums int //количество точек в файле
-	werr bool
+	curv int  //количество кривых в файле
+	nums int  //количество точек в файле
+	werr bool //не используется
 }
 
 var dSummaryCheck = []tSummaryCheck{
-	{fp.Join("data/barebones.las"), 2.0, "NO", 200, -999.25, 1.1, -999.25, "", 1, 0, true},
+	{fp.Join("data/barebones.las"), 2.0, "NO", 200, -999.25, 1.1, -999.25, "", 1, 2, true},
 	{fp.Join("data/6038187_v1.2.las"), 2.0, "NO", 0.05, 136.6, 0.05, -99999, "Scorpio E1", 9, 2732, false},
 	{fp.Join("data/6038187_v1.2_short.las"), 2.0, "NO", 0.05, 136.6, 0.05, -99999, "Scorpio E1", 9, 121, false},
 	{fp.Join("data/1001178549.las"), 2.0, "YES", 1783.5, 1784.5, 0.25, -999.25, "1-28", 27, 0, true},
@@ -49,21 +49,22 @@ var dSummaryCheck = []tSummaryCheck{
 	{fp.Join("data/missing_null.las"), 1.2, "NO", 1670, 1660, -0.125, -999.25, "ANY ET AL OIL WELL #12", 8, 3, false},
 	{fp.Join("data/missing_vers.las"), 2.0, "NO", 1670, 1660, -0.125, -999.25, "WELL", 8, 3, false},
 	{fp.Join("data/missing_wrap.las"), 1.2, "NO", 1670, 1660, -0.125, -999.25, "ANY ET AL OIL WELL #12", 8, 3, false},
-	{fp.Join("data/more_20_warnings.las"), 1.2, "NO", 0.0, 0.0, 1.0, -32768.0, "6", 6, 23, true},     //in file STEP=0.0 but this incorrect, LoadHeader replace STEP to actual from data
+	{fp.Join("data/more_20_warnings.las"), 1.2, "NO", 0.0, 0.0, 1.0, -32768.0, "6", 6, 22, true},     //in file STEP=0.0 but this incorrect, LoadHeader replace STEP to actual from data
 	{fp.Join("data/no-data-section.las"), 1.2, "NO", 0.0, 0.0, -32768.0, -32768.0, "6", 31, 0, true}, //in file STEP=0.0 but this incorrect, data section contain incorrect step too, result step equal NULL
 	{fp.Join("data/sample_bracketed_units.las"), 1.2, "NO", 1670, 1660, -0.125, -999.25, "ANY ET AL OIL WELL #12", 8, 3, true},
-	{fp.Join("data/test-curve-sec-empty-mnemonic.las"), 1.2, "NO", 1670, 1669.75, -0.125, -999.25, "ANY ET AL OIL WELL #12", 8, 3, true},
+	{fp.Join("data/test-curve-sec-empty-mnemonic.las"), 1.2, "NO", 1670, 1669.75, -0.125, -999.25, "ANY ET AL OIL WELL #12", 9, 3, true},
 	{fp.Join("data/UWI_API_leading_zero.las"), 1.2, "NO", 1670, 1660, -0.125, -999.25, "ANY ET AL OIL WELL #12", 8, 3, true},
 }
 
 // Основной тест по массиву готовых las файлов
+// пока проверки только по параметра в заголовке, нужно сделать пару проверок на данные
 func TestSummaryRead(t *testing.T) {
 	for _, tmp := range dSummaryCheck {
 		las := NewLas()
 		n, _ := las.Open(tmp.fn)
-		assert.Equal(t, tmp.nums, n)
-		assert.Equal(t, tmp.curv, len(las.Logs))
-		assert.Equal(t, tmp.ver, las.Ver)
+		assert.Equal(t, tmp.nums, n, fmt.Sprintf("<TestSummaryRead> nums fail on file: '%s'\n", tmp.fn))
+		assert.Equal(t, tmp.curv, len(las.Logs), fmt.Sprintf("<TestSummaryRead> curves fail on file: '%s'\n", tmp.fn))
+		assert.Equal(t, tmp.ver, las.Ver, fmt.Sprintf("<TestSummaryRead> ver fail on file: '%s'\n", tmp.fn))
 		assert.Equal(t, tmp.wrap, las.Wrap, fmt.Sprintf("<TestSummaryRead> wrap fail on file: '%s'\n", tmp.fn))
 		assert.Equal(t, tmp.strt, las.Strt, fmt.Sprintf("<TestSummaryRead> strt fail on file: '%s'\n", tmp.fn))
 		assert.Equal(t, tmp.stop, las.Stop, fmt.Sprintf("<TestSummaryRead> stop fail on file: '%s'\n", tmp.fn))
@@ -73,13 +74,14 @@ func TestSummaryRead(t *testing.T) {
 	}
 }
 
+//Убрать тест
 func TestCurveSec1(t *testing.T) {
 	las := NewLas()
 	n, err := las.Open(fp.Join("data/test-curve-sec-empty-mnemonic.las"))
 	assert.Nil(t, err)
 	assert.Equal(t, 3, n)
-	assert.Equal(t, "D", las.Logs["D"].Name)
-	assert.Equal(t, "M", las.Logs["D"].Unit)
+	assert.Equal(t, "D", las.Logs[0].Name)
+	assert.Equal(t, "M", las.Logs[0].Unit)
 }
 
 func TestCmpLas(t *testing.T) {
@@ -97,7 +99,7 @@ func TestTabulatedData(t *testing.T) {
 	las := makeLasFromFile(fp.Join("data/tabulated_data.las"))
 	assert.True(t, cmpLas(correct, las))
 	assert.True(t, correct.Logs.Cmp(las.Logs))
-	l := las.Logs["NPHI"]
+	l := las.Logs[3]
 	assert.Equal(t, 0.451, l.V[1])
 	assert.Equal(t, "NPHI", l.Name)
 }
@@ -121,11 +123,11 @@ func TestLasCheck(t *testing.T) {
 	lasLog, err = LasDeepCheck(fp.Join("data/test-curve-sec-empty-mnemonic+.las"), fp.Join("data/mnemonic.ini"), fp.Join("data/dic.ini"))
 	assert.Nil(t, err)
 	s = lasLog.msgCurve.String(fp.Join("data/test-curve-sec-empty-mnemonic+.las"))
-	assert.Contains(t, s, "*input log: B 	 internal: B 	 mnemonic:*")
-	assert.Contains(t, s, "input log: SP 	 internal: SP 	 mnemonic: SP")
-	assert.Contains(t, s, "*input log: -EL-2 	 internal: -EL-2 	 mnemonic:*")
+	assert.Contains(t, s, "*input log: B 	 mnemonic:*")
+	assert.Contains(t, s, "input log: SP 	 mnemonic: SP")
+	assert.Contains(t, s, "*input log: -EL-58 	 mnemonic:*")
 	s = lasLog.missMnemonic.String()
-	assert.Contains(t, s, "-EL-1")
+	assert.Contains(t, s, "-EL-7")
 	assert.NotContains(t, s, "SP")
 
 	lasLog, err = LasDeepCheck(fp.Join("data/more_20_warnings.las"), fp.Join("data/mnemonic.ini"), fp.Join("data/dic.ini"))
@@ -137,20 +139,22 @@ func TestLasCheck(t *testing.T) {
 	s = lasLog.msgCheck.String()
 	assert.Empty(t, s)
 	s = lasLog.msgCurve.String(fp.Join("data/more_20_warnings.las"))
-	assert.Contains(t, s, "*input log: второй каротаж 	 internal: второй каротаж 	 mnemonic:*")
-	assert.Contains(t, s, "input log: GK 	 internal: GK 	 mnemonic: GR")
-	assert.Contains(t, s, "*input log: первый 	 internal: первый 	 mnemonic:*")
+	assert.Contains(t, s, "*input log: второй каротаж 	 mnemonic:*")
+	assert.Contains(t, s, "input log: GK 	 mnemonic: GR")
+	assert.Contains(t, s, "*input log: первый 	 mnemonic:*")
 	s = lasLog.missMnemonic.String()
 	assert.Contains(t, s, "NNB")
 	assert.Contains(t, s, "второй каротаж")
 	assert.NotContains(t, s, "GR")
 
-	// случай если файла нет
-	lasLog, err = LasDeepCheck(fp.Join("data/-test-curve-sec-empty-mnemonic+.las"), fp.Join("data/mnemonic.ini"), fp.Join("data/dic.ini"))
+	// случай если файла нет "data/-.las"
+	lasLog, err = LasDeepCheck(fp.Join("data/-.las"), fp.Join("data/mnemonic.ini"), fp.Join("data/dic.ini"))
 	assert.NotNil(t, lasLog)
 	assert.NotNil(t, lasLog.errorOnOpen)
 
-	// случай las файл WRAP
+	// случай если las файл WRAP
 	lasLog = LasCheck(fp.Join("data/1.2/sample_wrapped.las"))
+	assert.Contains(t, lasLog.msgCheck.String(), "WRAP=YES")
+	lasLog, _ = LasDeepCheck(fp.Join("data/1.2/sample_wrapped.las"), fp.Join("data/mnemonic.ini"), fp.Join("data/dic.ini"))
 	assert.Contains(t, lasLog.msgCheck.String(), "WRAP=YES")
 }

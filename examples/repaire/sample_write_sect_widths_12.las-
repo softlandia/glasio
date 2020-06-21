@@ -1,0 +1,19 @@
+~Version information
+VERS.                          2.0 : glas (c) softlandia@gmail.com
+WRAP.                          NO  : ONE LINE PER DEPTH STEP
+~Well information
+ STRT.M 1670.000                                    :START DEPTH
+ STOP.M 1660.000                                    :STOP  DEPTH
+ STEP.M   -0.125                                    :STEP
+ NULL.   -999.250                                   :NULL VALUE
+ WELL.   ANY ET AL OIL WELL #12                     :WELL
+~Curve Information Section
+ DEPT.M                    :
+ A.US/M                     :
+ B.K/M3                     :
+ C.V/V                     :
+~ASCII Log Data
+#  D       | A       | B       | C       |
+1670.0000  123.4500   2550.0000  0.4500     
+1669.8750  123.4500   2550.0000  0.4500     
+1669.7500  123.4500   2550.0000  0.4500     

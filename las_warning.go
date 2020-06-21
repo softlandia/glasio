@@ -24,13 +24,13 @@ type TWarning struct {
 }
 
 //String - return string with warning
-func (o TWarning) String() string {
-	return fmt.Sprintf("line: %d,\t\"%s\"", o.line, o.desc)
+func (w TWarning) String() string {
+	return fmt.Sprintf("line: %d,\t\"%s\"", w.line+1, w.desc)
 }
 
 // ToCsvString - return string with warning
 // field TWarning.direct do not write to string
-func (o *TWarning) ToCsvString(sep ...string) string {
+func (w *TWarning) ToCsvString(sep ...string) string {
 	var fieldSep string
 	switch len(sep) {
 	case 0:
@@ -38,7 +38,7 @@ func (o *TWarning) ToCsvString(sep ...string) string {
 	case 1:
 		fieldSep = sep[0]
 	}
-	return fmt.Sprintf("%d%s %d%s \"%s\"", o.section, fieldSep, o.line, fieldSep, o.desc)
+	return fmt.Sprintf("%3d%s \"%s\"", w.line+1, fieldSep, w.desc)
 }
 
 //TLasWarnings - class to store and manipulate warnings
@@ -57,8 +57,8 @@ var (
 )
 
 //Count - return number of element
-func (o TLasWarnings) Count() int {
-	return len(o)
+func (w TLasWarnings) Count() int {
+	return len(w)
 }
 
 // ToString - make one string from all elements
@@ -66,8 +66,8 @@ func (o TLasWarnings) Count() int {
 // sep[1] - field separator разделитель полей
 // default separator between field "," between record "\n"
 // on empty container return ""
-func (o *TLasWarnings) ToString(sep ...string) string {
-	if o.Count() == 0 {
+func (w *TLasWarnings) ToString(sep ...string) string {
+	if w.Count() == 0 {
 		return ""
 	}
 	var (
@@ -89,53 +89,52 @@ func (o *TLasWarnings) ToString(sep ...string) string {
 		fieldSep = sep[1]
 	}
 	var sb strings.Builder
-	for _, w := range *o {
-		sb.WriteString(w.ToCsvString(fieldSep))
-		sb.WriteString(recSep)
+	for i, wrn := range *w {
+		sb.WriteString(fmt.Sprintf("%2d%s %s%s", i, fieldSep, wrn.ToCsvString(fieldSep), recSep))
 	}
 	return sb.String()
 }
 
 //SaveWarning - save to file all warning
 //file created and closed
-func (o *TLasWarnings) SaveWarning(fileName string) error {
-	if o.Count() == 0 {
+func (w *TLasWarnings) SaveWarning(fileName string) error {
+	if w.Count() == 0 {
 		return nil
 	}
 	oFile, err := os.Create(fileName)
 	if err != nil {
 		return err
 	}
-	_ = o.SaveWarningToFile(oFile)
+	_ = w.SaveWarningToFile(oFile)
 	oFile.Close()
 	return nil
 }
 
 //SaveWarningToWriter - store all warning to writer
 //return count lines writed to
-func (o *TLasWarnings) SaveWarningToWriter(writer *bufio.Writer) int {
-	if o.Count() == 0 {
+func (w *TLasWarnings) SaveWarningToWriter(writer *bufio.Writer) int {
+	if w.Count() == 0 {
 		return 0
 	}
-	for _, w := range *o {
+	for _, w := range *w {
 		_, err := writer.WriteString(w.String())
 		if err != nil {
 			log.Fatal("internal __error__ in SaveWarningToWriter")
 		}
 	}
-	return o.Count()
+	return w.Count()
 }
 
 //SaveWarningToFile - store all warning to file, file not close. return count warning writed
-func (o *TLasWarnings) SaveWarningToFile(oFile *os.File) int {
+func (w *TLasWarnings) SaveWarningToFile(oFile *os.File) int {
 	if oFile == nil {
 		return 0
 	}
-	if o.Count() == 0 {
+	if w.Count() == 0 {
 		return 0
 	}
-	for i, w := range *o {
-		fmt.Fprintf(oFile, "%d, %s\n", i, w)
+	for i, wrn := range *w {
+		fmt.Fprintf(oFile, "%d, %s\n", i, wrn)
 	}
-	return o.Count()
+	return w.Count()
 }

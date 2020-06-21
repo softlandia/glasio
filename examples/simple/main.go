@@ -49,19 +49,15 @@ func test2() {
 	las.Stop = 10.01
 	las.Step = 0.01
 	las.Well = "Примерная-101/бис"
-	d := glasio.NewLasCurve("DEPT")
-	d.Init(0, "DEPT", "DEPT", 5)
-	sp := glasio.NewLasCurve("SP.mV :spontaniously")
-	sp.Init(1, "SP", "SP", 5)
+	d := glasio.NewLasCurve("DEPT", las)
+	sp := glasio.NewLasCurve("SP.mV :spontaniously", las)
 	for i := 0; i < 5; i++ {
-		d.D[i] = float64(i)
-		d.V[i] = float64(i) / 100
-		sp.D[i] = float64(i)
-		sp.V[i] = float64(i) / 100
+		d.D = append(d.D, float64(i))
+		sp.D = append(sp.D, float64(i))
+		sp.V = append(sp.V, float64(i) / 100)
 	}
-	las.Logs["DEPT"] = d
-	las.Logs["SP"] = sp
-	las.SetActuallyNumberPoints(5)
+	las.Logs = append(las.Logs, d)
+	las.Logs = append(las.Logs, sp)
 	err := las.Save("empty.las")
 	log.Printf("err: %v", err)
 }

@@ -3,6 +3,7 @@ package glasio
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/softlandia/xlib"
@@ -96,12 +97,9 @@ func ParseCurveStr(s string) (f [3]string) {
 	}
 	f[0] = strings.TrimSpace(s[:iDot])
 	if len(f[0]) == 0 {
-		// case empty curve name
-		f[0] = defCurveName
+		f[0] = defCurveName // case empty curve name
 	}
 
-	/*	s = strings.TrimSpace(s[iDot+1:])
-		f[1], _ = xlib.StrCopyStop(s, ' ', ':') */
 	f[1] = strings.TrimSpace(s[iDot+1:])
 	return
 }
@@ -169,25 +167,23 @@ func (o *LasCurve) SetLen(n int) {
 	o.V = t
 }
 
-// Init - initialize LasCurve, set index, name, mnemonic, make slice for store data
-// перенести в NewLasCurve нельзя, в Init передаются обработанные данные кривой (словари, дублирование и т.д.)
-func (o *LasCurve) Init(index int, mnemonic, name string, size int) {
-	o.Index = index
-	o.Mnemonic = mnemonic
-	o.Name = name
-	o.D = make([]float64, size)
-	o.V = make([]float64, size)
-}
-
-//NewLasCurve - create new object LasCurve
-func NewLasCurve(s string) LasCurve {
+// NewLasCurve - create new object LasCurve
+// s - string from las header
+// las - pointer to container
+func NewLasCurve(s string, las *Las) LasCurve {
 	lc := LasCurve{}
 	curveFields := ParseCurveStr(s)
-	lc.Name = curveFields[0]
 	lc.IName = curveFields[0]
+	lc.Name = las.Logs.UniqueName(lc.IName)
 	lc.Unit = curveFields[1]
 	lc.Desc = curveFields[2]
-	lc.Index = 0
+	// index of new curve == number of curve already in container
+	lc.Index = len(las.Logs)
+	// мнемонику определяем по входному имени кривой
+	lc.Mnemonic = las.GetMnemonic(lc.IName)
+	// размер слайсов для хранения данных готовим равными количеству строк в исходном файле
+	lc.D = make([]float64, 0, las.ePoints)
+	lc.V = make([]float64, 0, las.ePoints)
 	return lc
 }
 
@@ -198,24 +194,47 @@ func (o LasCurve) String() string {
 
 // LasCurves - container for store all curves of las file
 // .Cmp(curves *LasCurves) bool - compare two curves containers
-type LasCurves map[string]LasCurve
+type LasCurves []LasCurve
 
-// Text - return string represent all curves parameters: IName, Name, Unit etc
-//TODO need realization
-func (o LasCurves) Text() string {
-	return "-"
+// Captions - return string represent all curves name with separators for las file
+// use as comment string after section ~A
+func (curves LasCurves) Captions() string {
+	var sb strings.Builder
+	sb.WriteString("# ")           //готовим строчку с названиями каротажей глубина всегда присутствует
+	for _, curve := range curves { //Пишем названия каротажей
+		fmt.Fprintf(&sb, " %-8s|", curve.Name) //Собираем строчку с названиями каротажей
+	}
+	return sb.String()
+}
+
+// IsPresent - return true if curveName is already present in container
+func (curves LasCurves) IsPresent(curveName string) bool {
+	for _, cn := range curves {
+		if cn.Name == curveName {
+			return true
+		}
+	}
+	return false
+}
+
+// UniqueName - make new unique name of curve if it duplicated
+func (curves LasCurves) UniqueName(curveName string) string {
+	if curves.IsPresent(curveName) {
+		return curveName + strconv.Itoa(len(curves))
+	}
+	return curveName
 }
 
 // Cmp - compare current curves container with another
 // сравниваются:
 //   количество кривых в контейнере
 //   два хеша от строк с именами всех кривых
-func (o LasCurves) Cmp(curves LasCurves) (res bool) {
-	res = (len(o) == len(curves))
+func (curves LasCurves) Cmp(otheCurves LasCurves) (res bool) {
+	res = (len(curves) == len(curves))
 	if res {
 		curvesName := make([]string, 0, len(curves))
-		for k := range o {
-			curvesName = append(curvesName, k)
+		for _, k := range curves {
+			curvesName = append(curvesName, k.Name)
 		}
 		sort.Strings(curvesName)
 		var sb strings.Builder
@@ -224,8 +243,8 @@ func (o LasCurves) Cmp(curves LasCurves) (res bool) {
 		}
 		h1 := xlib.StrHash(sb.String())
 		curvesName = curvesName[:0]
-		for k := range curves {
-			curvesName = append(curvesName, k)
+		for _, k := range otheCurves {
+			curvesName = append(curvesName, k.Name)
 		}
 		sort.Strings(curvesName)
 		sb.Reset()

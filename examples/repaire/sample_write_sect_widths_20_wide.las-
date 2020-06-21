@@ -1,0 +1,23 @@
+~Version information
+VERS.                          2.0 : glas (c) softlandia@gmail.com
+WRAP.                          NO  : ONE LINE PER DEPTH STEP
+~Well information
+ STRT.M 1670.000                                    :START DEPTH
+ STOP.M 1660.000                                    :STOP  DEPTH
+ STEP.M   -0.125                                    :STEP
+ NULL.   -999.250                                   :NULL VALUE
+ WELL.   AAAAA_2                                    :WELL
+~Curve Information Section
+ DEPT.M                    :
+ DT.US/M 60 520 32 00                     :
+ RHOB.K/M3 45 350 01 00                     :
+ NPHI.V/V 42 890 00 00                     :
+ SFLU.OHMM 07 220 04 00                     :
+ SFLA.OHMM 07 222 01 00                     :
+ ILM.OHMM 07 120 44 00                     :
+ ILD.OHMM 07 120 46 00                     :
+~ASCII Log Data
+#  DEPT    | DT      | RHOB    | NPHI    | SFLU    | SFLA    | ILM     | ILD     |
+1670.0000  123.4500   2550.0000  0.4500     123.4500   123.4500   110.2000   105.6000   
+1669.8750  123.4500   2550.0000  0.4500     123.4500   123.4500   110.2000   105.6000   
+1669.7500  123.4500   2550.0000  0.4500     123.4500   123.4500   110.2000   105.6000   

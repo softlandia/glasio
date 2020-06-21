@@ -9,11 +9,11 @@ WRAP.                          NO  : ONE LINE PER DEPTH STEP
  WELL.   Примерная-101 /"бис"                       :WELL
 ~Curve Information Section
  DEPT.M                    :
- LL3.ohmm                     :
+ BK.ohmm                     :
 ~ASCII Log Data
-# DEPT  | LL3     |
-0.000     0.000     
-0.000     0.000     
-0.000     0.000     
-0.000     0.000     
-0.000     0.000     
+#  DEPT    | BK      |
+1.0000     0.0000     
+1.1000     1.1000     
+1.2000     2.2000     
+1.3000     3.3000     
+1.4000     4.4000     

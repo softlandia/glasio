@@ -173,9 +173,9 @@ func TestParseCurveStr(t *testing.T) {
 }
 
 func TestNewLasCurveFromString(t *testing.T) {
-	var lc LasCurve
+	las := NewLas()
 	for _, tmp := range dParseCurveStr {
-		lc = NewLasCurve(tmp.s)
+		lc := NewLasCurve(tmp.s, las)
 		assert.Equal(t, tmp.f0, lc.Name)
 		assert.Equal(t, tmp.f1, lc.Unit)
 		assert.Equal(t, tmp.f2, lc.Desc)
@@ -183,13 +183,10 @@ func TestNewLasCurveFromString(t *testing.T) {
 }
 
 func TestLasCurveSetLen(t *testing.T) {
-	curve := NewLasCurve("SP.mV  :self")
-	curve.Init(0, "SP", "SP", 5)
-	curve.D[0] = 0.1
-	curve.D[1] = 0.2
-	curve.D[2] = 0.3
-	curve.D[3] = 0.4
-	curve.D[4] = 0.5
+	las := NewLas()
+	curve := NewLasCurve("SP.mV  :self", las)
+	//curve.Init(0, "SP", "SP", 5)
+	curve.D = append(curve.D, 0.1, 0.2, 0.3, 0.4, 0.5)
 	curve.SetLen(3)
 	assert.Equal(t, 3, len(curve.D))
 	assert.Equal(t, 3, len(curve.V))
@@ -213,14 +210,17 @@ func TestLasCurveSetLen(t *testing.T) {
 	assert.Equal(t, 0.2, curve.D[1])
 }
 
+// Тестирование отображения кривой в строковое представление
 func TestLasCurveString(t *testing.T) {
 	las := makeLasFromFile(fp.Join("data/test-curve-sec-empty-mnemonic.las"))
 	//D.M     : 1  DEPTH
-	assert.Equal(t, "[\n{\n\"IName\": \"D\",\n\"Name\": \"D\",\n\"Mnemonic\": \"\",\n\"Unit\": \"M\",\"Val\": \"\",\n\"Desc\": \"1 DEPTH\"\n}\n]", las.Logs["D"].String())
+	assert.Equal(t, "[\n{\n\"IName\": \"D\",\n\"Name\": \"D\",\n\"Mnemonic\": \"\",\n\"Unit\": \"M\",\"Val\": \"\",\n\"Desc\": \"1 DEPTH\"\n}\n]", las.Logs[0].String())
 	//A.US/M  : 2  SONIC TRANSIT TIME
-	assert.Equal(t, "[\n{\n\"IName\": \"A\",\n\"Name\": \"A\",\n\"Mnemonic\": \"\",\n\"Unit\": \"US/M\",\"Val\": \"\",\n\"Desc\": \"2 SONIC TRANSIT TIME\"\n}\n]", las.Logs["A"].String())
+	assert.Equal(t, "[\n{\n\"IName\": \"A\",\n\"Name\": \"A\",\n\"Mnemonic\": \"\",\n\"Unit\": \"US/M\",\"Val\": \"\",\n\"Desc\": \"2 SONIC TRANSIT TIME\"\n}\n]", las.Logs[1].String())
 	//-EL-1.      :
-	assert.Equal(t, "[\n{\n\"IName\": \"-EL-\",\n\"Name\": \"-EL-1\",\n\"Mnemonic\": \"\",\n\"Unit\": \"m\",\"Val\": \"\",\n\"Desc\": \"\"\n}\n]", las.Logs["-EL-1"].String())
-	assert.Equal(t, "[\n{\n\"IName\": \"-EL-\",\n\"Name\": \"-EL-2\",\n\"Mnemonic\": \"\",\n\"Unit\": \"v/v\",\"Val\": \"\",\n\"Desc\": \"\"\n}\n]", las.Logs["-EL-2"].String())
-	assert.Equal(t, "[\n{\n\"IName\": \"-EL-\",\n\"Name\": \"-EL-3\",\n\"Mnemonic\": \"\",\n\"Unit\": \"m V\",\"Val\": \"\",\n\"Desc\": \"\"\n}\n]", las.Logs["-EL-3"].String())
+	assert.Equal(t, "[\n{\n\"IName\": \"-EL-\",\n\"Name\": \"-EL-\",\n\"Mnemonic\": \"\",\n\"Unit\": \"\",\"Val\": \"\",\n\"Desc\": \"\"\n}\n]", las.Logs[4].String())
+	assert.Equal(t, "[\n{\n\"IName\": \"-EL-\",\n\"Name\": \"-EL-5\",\n\"Mnemonic\": \"\",\n\"Unit\": \"m\",\"Val\": \"\",\n\"Desc\": \"\"\n}\n]", las.Logs[5].String())
+	assert.Equal(t, "[\n{\n\"IName\": \"-EL-\",\n\"Name\": \"-EL-6\",\n\"Mnemonic\": \"\",\n\"Unit\": \"v/v\",\"Val\": \"\",\n\"Desc\": \"\"\n}\n]", las.Logs[6].String())
+	assert.Equal(t, "[\n{\n\"IName\": \"-EL-\",\n\"Name\": \"-EL-7\",\n\"Mnemonic\": \"\",\n\"Unit\": \"m V\",\"Val\": \"\",\n\"Desc\": \"\"\n}\n]", las.Logs[7].String())
+	assert.Equal(t, "[\n{\n\"IName\": \"-EL-5\",\n\"Name\": \"-EL-58\",\n\"Mnemonic\": \"\",\n\"Unit\": \"m\",\"Val\": \"\",\n\"Desc\": \"\"\n}\n]", las.Logs[8].String())
 }

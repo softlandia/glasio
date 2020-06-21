@@ -10,6 +10,7 @@ import (
 	"github.com/softlandia/cpd"
 )
 
+// isIgnoredLine - check string s to empty or LAS format comment
 func isIgnoredLine(s string) bool {
 	if (len(s) == 0) || (s[0] == '#') {
 		return true
@@ -54,13 +55,14 @@ func makeSampleLas(
 	las.Step = step
 	las.Well = well
 
-	curve := NewLasCurve("DEPT.m :")
-	curve.Init(len(las.Logs), "DEPT", "DEPT", las.GetExpectedPointsCount(las.Strt, las.Stop, las.Step))
-	las.Logs["DEPT"] = curve
-	curve = NewLasCurve("BK.ohmm :laterolog")
-	curve.Init(len(las.Logs), "BK", "LL3", las.GetExpectedPointsCount(las.Strt, las.Stop, las.Step))
-	las.Logs["BK"] = curve
-	las.SetActuallyNumberPoints(5)
+	curve := NewLasCurve("DEPT.m :", las)
+	curve.D = append(curve.D, 1.0, 1.1, 1.2, 1.3, 1.4)
+	las.Logs = append(las.Logs, curve)
+
+	curve = NewLasCurve("BK.ohmm :laterolog", las)
+	curve.D = append(curve.D, 1.0, 1.1, 1.2, 1.3, 1.4)
+	curve.V = append(curve.V, 0.0, 1.1, 2.2, 3.3, 4.4)
+	las.Logs = append(las.Logs, curve)
 	return las
 }
 
@@ -79,6 +81,7 @@ func LoadLasHeader(fileName string) (*Las, error) {
 	if err != nil {
 		return nil, err
 	}
+	las.ePoints = las.ReadRows()
 	las.LoadHeader()
 	return las, nil
 }
@@ -102,7 +105,6 @@ func LasCheck(filename string) *Logger {
 	if lasLog.errorOnOpen != nil {
 		lasLog.msgCheck = append(lasLog.msgCheck, lasLog.msgCheck.msgFileOpenWarning(filename, lasLog.errorOnOpen))
 	}
-	las = nil //TODO уверен это грубая ошибка, Logger хранит в себе las НАФИГА мы его тут убиваем...
 	return lasLog
 }
 
@@ -110,6 +112,11 @@ func LasCheck(filename string) *Logger {
 // считывает файл и собирает все сообщения в один объект
 func LasDeepCheck(filename, mnemonicFile, vocdicFile string) (*Logger, error) {
 	lasLog := LasCheck(filename)
+	if lasLog.errorOnOpen != nil {
+		//при выполнении LasCheck произошла ошибка чтения файла, дальнейшаа более глубокая проверка нежелательна
+		//ошибки чтения файла связаны с серьёздным нарушением его структуры, углубленная проверка не имеет смысла
+		return lasLog, lasLog.errorOnOpen
+	}
 	//TODO здесь засада, LasCheck сам создаёт и читает las, более того он вообще-то его в себе хранит,
 	//     НО в данном случае нам СТОИТ??? или НЕ СТОИТ??? об этом забывать
 	//     мы ведь вынуждены всё равно прочитать ещё раз las файл
@@ -125,12 +132,12 @@ func LasDeepCheck(filename, mnemonicFile, vocdicFile string) (*Logger, error) {
 	las.LogDic = &Mnemonic
 	las.VocDic = &VocDic
 	las.Open(filename) //читаем второй раз, когда подключены словари, то чтение идёт иначе )))
-	for k, v := range las.Logs {
-		if len(v.Mnemonic) == 0 { //v.Mnemonic содержит автоопределённую стандартную мнемонику, если она пустая, значит пропущена, помечаем **
-			lasLog.msgCurve = append(lasLog.msgCurve, fmt.Sprintf("*input log: %s \t internal: %s \t mnemonic:%s*\n", v.IName, k, v.Mnemonic))
-			lasLog.missMnemonic[v.IName] = v.IName
+	for _, curve := range las.Logs {
+		if len(curve.Mnemonic) == 0 { //curve.Mnemonic содержит автоопределённую стандартную мнемонику, если она пустая, значит пропущена, помечаем **
+			lasLog.msgCurve = append(lasLog.msgCurve, fmt.Sprintf("*input log: %s \t mnemonic:%s*\n", curve.IName, curve.Mnemonic))
+			lasLog.missMnemonic[curve.IName] = curve.IName
 		} else {
-			lasLog.msgCurve = append(lasLog.msgCurve, fmt.Sprintf("input log: %s \t internal: %s \t mnemonic: %s\n", v.IName, k, v.Mnemonic))
+			lasLog.msgCurve = append(lasLog.msgCurve, fmt.Sprintf("input log: %s \t mnemonic: %s\n", curve.IName, curve.Mnemonic))
 		}
 	}
 	las = nil
