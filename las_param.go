@@ -182,8 +182,10 @@ func NewLasCurve(s string, las *Las) LasCurve {
 	// мнемонику определяем по входному имени кривой
 	lc.Mnemonic = las.GetMnemonic(lc.IName)
 	// размер слайсов для хранения данных готовим равными количеству строк в исходном файле
-	lc.D = make([]float64, 0, las.ePoints)
-	lc.V = make([]float64, 0, las.ePoints)
+	//	lc.D = make([]float64, 0, las.ePoints /*las.NumPoints()*/)
+	//	lc.V = make([]float64, 0, las.ePoints /*las.NumPoints()*/)
+	lc.D = make([]float64, 0, las.NumPoints())
+	lc.V = make([]float64, 0, las.NumPoints())
 	return lc
 }
 

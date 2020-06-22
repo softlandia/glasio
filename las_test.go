@@ -55,12 +55,12 @@ func TestReachingMaxAmountWarnings(t *testing.T) {
 	MaxWarningCount = 100
 	las = NewLas()
 	las.Open(fp.Join("data/more_20_warnings.las"))
-	assert.Equal(t, 26, las.Warnings.Count(), fmt.Sprintf("<TestReachingMaxAmountWarnings> on file '%s' wrong warning number: %d expected 26\n", las.FileName, las.Warnings.Count()))
+	assert.Equal(t, 38, las.Warnings.Count(), fmt.Sprintf("<TestReachingMaxAmountWarnings> on file '%s' wrong warning number: %d expected 38\n", las.FileName, las.Warnings.Count()))
 	MaxWarningCount = saveMaxWarningCount
 
 	// SaveWarning() does not add to las.Warnings
 	las.SaveWarning(fp.Join("data/more_20_warnings.wrn"))
-	assert.Equal(t, 26, las.Warnings.Count(), fmt.Sprintf("<TestReachingMaxAmountWarnings> after las.SaveWarning() number warning changed: %d expected 26\n", las.Warnings.Count()))
+	assert.Equal(t, 38, las.Warnings.Count(), fmt.Sprintf("<TestReachingMaxAmountWarnings> after las.SaveWarning() number warning changed: %d expected 38\n", las.Warnings.Count()))
 
 	// test for error occure when SaveWarning() fails to write to the file
 	assert.NotNil(t, las.SaveWarning(""))

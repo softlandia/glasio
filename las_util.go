@@ -18,14 +18,15 @@ func isIgnoredLine(s string) bool {
 	return false
 }
 
+// два las равны если равны их основные параметры: STRT, STOP, STEP, NULL, количество точек в данных,
+// а также количество кривых и совпадают имена кривых
 func cmpLas(correct, las *Las) (res bool) {
 	res = (correct.Strt == las.Strt)
 	res = res && (correct.Stop == las.Stop)
 	res = res && (correct.Step == las.Step)
 	res = res && (correct.Null == las.Null)
-	res = res && (correct.nPoints == las.nPoints)
+	res = res && (correct.NumPoints() == las.NumPoints())
 	res = res && correct.Logs.Cmp(las.Logs)
-	res = res && (len(correct.Logs) == len(las.Logs))
 	return res
 }
 
@@ -37,6 +38,9 @@ func makeLasFromFile(fn string) *Las {
 	return las
 }
 
+// create object *Las
+// NULL, STRT, STOP, STEP, WELL from input
+// create 2 curves: DEPT and BK with 5 points
 func makeSampleLas(
 	cp cpd.IDCodePage,
 	null float64,
@@ -81,7 +85,8 @@ func LoadLasHeader(fileName string) (*Las, error) {
 	if err != nil {
 		return nil, err
 	}
-	las.ePoints = las.ReadRows()
+	//las.ePoints = las.ReadRows()
+	las.ReadRows()
 	las.LoadHeader()
 	return las, nil
 }

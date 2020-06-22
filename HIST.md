@@ -1,4 +1,8 @@
-﻿## ver 0.2.0 // 2020.06.21 ##
+﻿## ver 0.2.1 // 2020.06.22 ##
+
+- add check to monotony of depth on reading добавлена проверка при чтении на монотонность колонки глубины
+
+## ver 0.2.0 // 2020.06.21 ##
 
 - replace las.Logs to slice
 - full change ReadDataSec 

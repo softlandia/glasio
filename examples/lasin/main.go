@@ -15,7 +15,7 @@ func main() {
 		fmt.Printf("using:\nlasin fileName.las\n")
 		os.Exit(0)
 	}
-	//glasio.MaxWarningCount = 100
+	glasio.MaxWarningCount = 100
 	las := glasio.NewLas()
 	_, err := las.Open(os.Args[1])
 	if err != nil {

@@ -111,7 +111,14 @@ func (c Checker) check(las *Las) CheckResults {
 	return res
 }
 
-/****************************/
+/*
+// NewDeptChecker - creation of a new checker to check the depth of monotony
+func NewDeptChecker() Checker {
+	return Checker{
+		"DPTM": Check{"DPTM", "~A", "Dept step monotony", deptMonotony},
+	}
+}
+*/
 
 // NewStdChecker - создание нового ПРОВЕРЩИКА las файла.
 // WRAP = ON
