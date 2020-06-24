@@ -127,17 +127,6 @@ func TestGetStepFromData(t *testing.T) {
 	}
 }
 
-//Тестирование увеличения чоличества точек
-type tExpandDept struct {
-	fn   string
-	n    int //количество считанных точек данных
-	nWrn int //количество предупреждений
-}
-
-var dExpandDept = []tExpandDept{
-	{fp.Join("data/expand_points_01.las"), 7, 5},
-}
-
 func TestLasSetNull(t *testing.T) {
 	las := NewLas()
 	las.Open(fp.Join("data/expand_points_01.las"))
@@ -299,21 +288,30 @@ func BenchmarkSave2(b *testing.B) {
 }
 */
 
-/*
-//TODO данный тест больше не нужен, ExpandPoints больше не вызывается
-func TestExpandPoints(t *testing.T) {
-	// перед тестом установим маленькое количество ожидаемых точек, иначе надо делать огномный тестовый файл
-	// срабатывание добавления выполняется при переполнении буфера 1000
-	ExpPoints = 2
-		for _, tmp := range dExpandDept {
-			las := NewLas()
-			n, err := las.Open(tmp.fn)
-			assert.Nil(t, err, fmt.Sprintf("<TestExpandPoints> on '%s' return error: %v\n", tmp.fn, err))
-			assert.Equal(t, tmp.n, n, fmt.Sprintf("<TestExpandPoints> on '%s' return n: %d expect: %d\n", tmp.fn, n, tmp.n))
-			assert.Equal(t, tmp.n, las.NumPoints())
-			assert.Equal(t, tmp.nWrn, las.Warnings.Count(), fmt.Sprintf("<TestExpandPoints> '%s' return warning count %d, expected %d\n", tmp.fn, las.Warnings.Count(), tmp.nWrn))
-			assert.Contains(t, las.Warnings[2].String(), "line: 25", fmt.Sprintf("<TestExpandPoints> '%s' return: '%s' wrong warning index 2\n", tmp.fn, las.Warnings[2]))
-			assert.Contains(t, las.Warnings[4].String(), "line: 27", fmt.Sprintf("<TestExpandPoints> '%s' return: '%s' wrong warning index 4\n", tmp.fn, las.Warnings[4]))
-		}
+//Тестирование заполнения секций
+type tSecFill struct {
+	fn string
+	n  int //количество считанных точек данных
+	well,
+	null,
+	ver,
+	wrap string //версия las файла
 }
-*/
+
+var dSecFill = []tSecFill{
+	{fp.Join("data/expand_points_01.las"), 7, "12-Сплошная", "-9999.00", "1.20", "NO"},
+}
+
+func TestSection(t *testing.T) {
+	for _, tmp := range dSecFill {
+		las := NewLas()
+		n, err := las.Open(tmp.fn)
+		assert.Nil(t, err, fmt.Sprintf("<TestExpandPoints> on '%s' return error: %v\n", tmp.fn, err))
+		assert.Equal(t, tmp.n, n, fmt.Sprintf("<TestExpandPoints> on '%s' return n: %d expect: %d\n", tmp.fn, n, tmp.n))
+		assert.Equal(t, tmp.n, las.NumPoints())
+		assert.Equal(t, tmp.ver, las.VerSec.params["VERS"].Val)
+		assert.Equal(t, tmp.wrap, las.VerSec.params["WRAP"].Val)
+		assert.Equal(t, tmp.null, las.WelSec.params["NULL"].Val)
+		assert.Equal(t, tmp.well, las.WelSec.params["WELL"].Val)
+	}
+}

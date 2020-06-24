@@ -1,5 +1,6 @@
 // (c) softland 2020
 // softlandia@gmail.com
+// main file
 
 package glasio
 
@@ -20,58 +21,6 @@ import (
 
 	"github.com/softlandia/xlib"
 )
-
-///format strings represent structure of LAS file
-const (
-	_LasFirstLine      = "~Version information\n"
-	_LasVersion        = "VERS.                          %3.1f : glas (c) softlandia@gmail.com\n"
-	_LasWrap           = "WRAP.                          NO  : ONE LINE PER DEPTH STEP\n"
-	_LasWellInfoSec    = "~Well information\n"
-	_LasMnemonicFormat = "#MNEM.UNIT DATA                                  :DESCRIPTION\n"
-	_LasStrt           = " STRT.M %8.3f                                    :START DEPTH\n"
-	_LasStop           = " STOP.M %8.3f                                    :STOP  DEPTH\n"
-	_LasStep           = " STEP.M %8.3f                                    :STEP\n"
-	_LasNull           = " NULL.  %9.3f                                   :NULL VALUE\n"
-	_LasRkb            = " RKB.M %8.3f                                     :KB or GL\n"
-	_LasXcoord         = " XWELL.M %8.3f                                   :Well head X coordinate\n"
-	_LasYcoord         = " YWELL.M %8.3f                                   :Well head Y coordinate\n"
-	_LasOilComp        = " COMP.  %-43.43s:OIL COMPANY\n"
-	_LasWell           = " WELL.   %-43.43s:WELL\n"
-	_LasField          = " FLD .  %-43.43s:FIELD\n"
-	_LasLoc            = " LOC .  %-43.43s:LOCATION\n"
-	_LasCountry        = " CTRY.  %-43.43s:COUNTRY\n"
-	_LasServiceComp    = " SRVC.  %-43.43s:SERVICE COMPANY\n"
-	_LasDate           = " DATE.  %-43.43s:DATE\n"
-	_LasAPI            = " API .  %-43.43s:API NUMBER\n"
-	_LasUwi            = " UWI .  %-43.43s:UNIVERSAL WELL INDEX\n"
-	_LasCurvSec        = "~Curve Information Section\n"
-	_LasCurvFormat     = "#MNEM.UNIT                 :DESCRIPTION\n"
-	_LasCurvDept       = " DEPT.M                    :\n"
-	_LasCurvLine       = " %s.%s                     :\n"
-	_LasDataSec        = "~ASCII Log Data\n"
-
-	//secName: 0 - empty, 1 - Version, 2 - Well info, 3 - Curve info, 4 - dAta
-	lasSecIgnore   = 0
-	lasSecVersion  = 1
-	lasSecWellInfo = 2
-	lasSecCurInfo  = 3
-	lasSecData     = 4
-)
-
-// HeaderParam - any parameter of LAS
-type HeaderParam struct {
-	lineNo  int // number of line in source file
-	source, // text line from source file contain this parameter
-	name, // name of parameter: STOP, WELL, SP - curve name also
-	Val, // parameter value
-	Unit, // unit of parameter
-	Description string // descrioption of parameter
-}
-
-// HeaderSection - contain parameters of Well section
-type HeaderSection map[string]HeaderParam
-
-//type TLasNull float64
 
 // Las - class to store las file
 // input code page autodetect
@@ -104,7 +53,7 @@ type Las struct {
 	maxWarningCount int                // default maximum warning count
 	stdNull         float64            // default null value
 	VerSec,
-	WellSec,
+	WelSec,
 	CurSec,
 	ParSec,
 	OthSec HeaderSection
@@ -128,17 +77,14 @@ func NewLas(outputCP ...cpd.IDCodePage) *Las {
 	las := &Las{} //new(Las)
 	las.Ver = 2.0
 	las.Wrap = "NO"
-	// до того как прочитаем данные мы не можем знать сколько их фактически, предполагаем что 1000, достаточно большой буфер
-	// избавит от необходимости довыделять память при чтении
-	//las.ePoints = ExpPoints
 	las.nRows = ExpPoints
 	las.rows = make([]string, 0, las.nRows)
 	las.Logs = make([]LasCurve, 0)
-	las.VerSec = make(HeaderSection)
-	las.WellSec = make(HeaderSection)
-	las.CurSec = make(HeaderSection)
-	las.ParSec = make(HeaderSection)
-	las.OthSec = make(HeaderSection)
+	las.VerSec = NewVerSection()
+	las.WelSec = NewWelSection()
+	las.CurSec = NewCurSection()
+	las.ParSec = NewParSection()
+	las.OthSec = NewOthSection()
 	las.maxWarningCount = MaxWarningCount
 	las.stdNull = StdNull
 	las.Strt = StdNull
@@ -165,21 +111,13 @@ func NewLas(outputCP ...cpd.IDCodePage) *Las {
 // ~A - data section
 func (las *Las) selectSection(r rune) int {
 	switch r {
-	case 86: //V
+	case 0x76, 0x56: //86, 118: //V, v
 		return lasSecVersion //version section
-	case 118: //v
-		return lasSecVersion //version section
-	case 87: //W
+	case 0x77, 0x57: //W, w
 		return lasSecWellInfo //well info section
-	case 119: //w
-		return lasSecWellInfo //well info section
-	case 67: //C
+	case 0x43, 0x63: //C, c
 		return lasSecCurInfo //curve section
-	case 99: //c
-		return lasSecCurInfo //curve section
-	case 65: //A
-		return lasSecData //data section
-	case 97: //a
+	case 0x41, 0x61: //A, a
 		return lasSecData //data section
 	default:
 		return lasSecIgnore
@@ -188,7 +126,7 @@ func (las *Las) selectSection(r rune) int {
 
 // IsWraped - return true if WRAP == YES
 func (las *Las) IsWraped() bool {
-	return strings.Contains(strings.ToUpper(las.Wrap), "Y") //(strings.Index(strings.ToUpper(o.Wrap), "Y") >= 0)
+	return strings.Contains(strings.ToUpper(las.Wrap), "Y")
 }
 
 // SaveWarning - save to file all warning
@@ -331,12 +269,14 @@ func (las *Las) Open(fileName string) (int, error) {
 5. читаем одну строку (это один параметер из известной нам секции)
 */
 func (las *Las) LoadHeader() (int, error) {
-	s := ""
-	var err error
+	var (
+		err error
+		sec HeaderSection
+	)
 	secNum := 0
 	las.currentLine = 0
-	for i := range las.rows {
-		s = strings.TrimSpace(las.rows[i])
+	for i, s := range las.rows {
+		s = strings.TrimSpace(s)
 		las.currentLine++
 		if isIgnoredLine(s) {
 			continue
@@ -346,15 +286,36 @@ func (las *Las) LoadHeader() (int, error) {
 			if secNum == lasSecData {
 				break // reached the data section, stop load header
 			}
-		} else {
-			//if not comment, not empty and not new section => parameter, read it
-			err = las.ReadParameter(s, secNum)
-			if err != nil {
-				las.addWarning(TWarning{directOnRead, secNum, i, fmt.Sprintf("param: '%s' error: %v", s, err)})
-			}
+			sec = las.section(rune(s[1]))
+			continue
+		}
+		//not comment, not empty and not new section => parameter, read it
+		err = las.ReadParameter(s, secNum)
+		p, _ := sec.parse(s, las.currentLine)
+		sec.params[p.Name] = p
+		if err != nil {
+			las.addWarning(TWarning{directOnRead, secNum, i, fmt.Sprintf("param: '%s' error: %v", s, err)})
 		}
 	}
 	return las.currentLine, nil
+}
+
+func (las *Las) section(r rune) HeaderSection {
+	switch r {
+	case 0x56, 0x76: //V, v
+		return las.VerSec //version section
+	case 0x57, 0x77: //W, w
+		if las.Ver < 2.0 {
+			las.WelSec.parse = welParse12 //change parser, by default using parser 2.0
+		}
+		return las.WelSec //well info section
+	case 0x43, 0x63: //C, c
+		return las.CurSec //curve section
+	case 0x50, 0x70: //P, p
+		return las.ParSec //data section
+	default:
+		return las.OthSec
+	}
 }
 
 // saveHeaderWarning - забирает и сохраняет варнинги от всех проверок
@@ -379,7 +340,7 @@ func (las *Las) ReadParameter(s string, secNum int) error {
 
 func (las *Las) readVersionParam(s string) error {
 	var err error
-	p := NewLasParam(s)
+	p := NewHeaderParam(s, 0)
 	switch p.Name {
 	case "VERS":
 		las.Ver, err = strconv.ParseFloat(p.Val, 64)
@@ -392,7 +353,7 @@ func (las *Las) readVersionParam(s string) error {
 //ReadWellParam - read parameter from WELL section
 func (las *Las) ReadWellParam(s string) error {
 	var err error
-	p := NewLasParam(s)
+	p := NewHeaderParam(s, 0)
 	switch p.Name {
 	case "STRT":
 		las.Strt, err = strconv.ParseFloat(p.Val, 64)
@@ -415,25 +376,8 @@ func (las *Las) ReadWellParam(s string) error {
 	return err
 }
 
-//ChangeDuplicateLogName - return non duplicated name of log
-//if input name unique, return input name
-//if input name not unique, return input name + index duplicate
-//index duplicate - Las field, increase
-/*
-func (las *Las) ChangeDuplicateLogName(name string) string {
-		s := ""
-		if _, ok := las.Logs[name]; ok {
-			las.iDuplicate++
-			s = fmt.Sprintf("%v", las.iDuplicate)
-			name += s
-		}
-		return name
-
-}
-*/
-
 //Разбор одной строки с мнемоникой каротажа
-//Разбираем в переменную l а потом сохраняем в map
+//Разбираем а потом сохраняем в slice
 //Каждый каротаж характеризуется тремя именами
 //IName    - имя каротажа в исходном файле, может повторятся
 //Name     - ключ в map хранилище, повторятся не может. если в исходном есть повторение, то Name строится добавлением к IName индекса

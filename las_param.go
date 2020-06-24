@@ -1,3 +1,7 @@
+// (c) softland 2020
+// softlandia@gmail.com
+// types and functions for header parameters
+
 package glasio
 
 import (
@@ -9,14 +13,133 @@ import (
 	"github.com/softlandia/xlib"
 )
 
-//LasParam - class to store parameter from any section
-type LasParam struct {
+// HeaderParam - class to store parameter from any section
+// universal type for store any header parameters
+// use for store parameters from sections
+// ~V, ~W and other
+// for curves used inherited type LasCurve
+type HeaderParam struct {
+	Val      string // parameter value
+	Name     string // name of parameter: STOP, WELL, SP - curve name also, also matches the key used in storage
 	IName    string
-	Name     string
+	Unit     string // unit of parameter
 	Mnemonic string
-	Unit     string
-	Val      string
-	Desc     string
+	Desc     string // description of parameter
+	lineNo   int    // number of line in source file
+}
+
+// HeaderSection - contain parameters of Well section
+type HeaderSection struct {
+	params map[string]HeaderParam
+	parse  ParseHeaderParam // function for parse one line
+}
+
+// ParseHeaderParam - function to parse one line of header
+// return new  of added parameter and warning
+// on success TWarning.Empty() == true
+type ParseHeaderParam func(s string, i int) (HeaderParam, TWarning)
+
+// NewVerSection - create section ~V
+func NewVerSection() HeaderSection {
+	sec := HeaderSection{}
+	sec.params = make(map[string]HeaderParam)
+	sec.parse = defParse
+	return sec
+}
+
+// defParse - parse string and create parameter of section ~V
+func defParse(s string, i int) (HeaderParam, TWarning) {
+	p := NewHeaderParam(s, i)
+	return *p, TWarning{}
+}
+
+// NewOthSection - create section ~W
+func NewOthSection() HeaderSection {
+	sec := HeaderSection{}
+	sec.params = make(map[string]HeaderParam)
+	sec.parse = defParse
+	return sec
+}
+
+// NewParSection - create section ~W
+func NewParSection() HeaderSection {
+	sec := HeaderSection{}
+	sec.params = make(map[string]HeaderParam)
+	sec.parse = defParse
+	return sec
+}
+
+// NewCurSection - create section ~C
+func NewCurSection() HeaderSection {
+	sec := HeaderSection{}
+	sec.params = make(map[string]HeaderParam)
+	sec.parse = curParse // parser for section ~C
+	return sec
+}
+
+// curParse - parse string and create parameter of section ~C
+func curParse(s string, i int) (HeaderParam, TWarning) {
+	p := NewCurveHeaderParam(s, i)
+	return *p, TWarning{}
+}
+
+// NewWelSection - create section ~W
+func NewWelSection() HeaderSection {
+	sec := HeaderSection{}
+	sec.params = make(map[string]HeaderParam)
+	sec.parse = welParse20 // by default using 2.0 version parser
+	return sec
+}
+
+// welParse12 - parse string and create parameter of section ~W
+// this version for las version less then 2.0
+func welParse12(s string, i int) (HeaderParam, TWarning) {
+	p := NewHeaderParam(s, i)
+	if p.Name == "WELL" {
+		p.wellName12()
+	}
+	return *p, TWarning{}
+}
+
+// welParse20 - parse string and create parameter of section ~W
+// this version for las version 2.0
+func welParse20(s string, i int) (HeaderParam, TWarning) {
+	p := NewHeaderParam(s, i)
+	if p.Name == "WELL" {
+		p.wellName20()
+	}
+	return *p, TWarning{}
+}
+
+func (p *HeaderParam) wellName12() {
+	p.Val, p.Desc = p.Desc, p.Val
+}
+
+func (p *HeaderParam) wellName20() {
+	// по умолчанию строка параметра разбирается на 4 составляющие: "имя параметра, ед измерения, значение, коментарий"
+	// между точкой и двоеточием ожидается единица измерения и значение параметра
+	// для параметра WELL пробел после точки также разбивает строку на две: ед измерения и значение
+	// но ТОЛЬКО для этого параметра единица измерения не существует и делать этого не следует
+	// таким образом собираем обратно в одно значение то, что ВОЗМОЖНО разбилось
+	if len(p.Unit) == 0 {
+		return
+	}
+	if len(p.Val) == 0 {
+		p.Val = p.Unit
+	} else {
+		p.Val = p.Unit + " " + p.Val
+	}
+	p.Unit = ""
+}
+
+func wellNameFromParam(p *HeaderParam) string {
+	if len(p.Unit) == 0 {
+		return p.Val
+	}
+	if len(p.Val) == 0 {
+		return p.Unit //TODO не тестируется
+	}
+	return p.Unit + " " + p.Val
 }
 
 //PrepareParamStr - prepare string to parse, replace many space to one, replace tab to space, replace combination of separator to one
@@ -30,7 +153,7 @@ func PrepareParamStr(s string) string {
 // ParseParamStr - parse string from las file
 // return slice with 4 string and error if occure
 // before process input string 2 or more space replace on 1 space
-// sample "NULL .		               -9999.00 : Null value"
+// sample "NULL .		   -9999.00 : Null value"
 // f[0] - name
 // f[1] - unit
 // f[2] - value
@@ -104,10 +227,12 @@ func ParseCurveStr(s string) (f [3]string) {
 	return
 }
 
-//NewLasParam - create new object LasParam
-//fill fields from s
-func NewLasParam(s string) *LasParam {
-	par := new(LasParam)
+// NewHeaderParam - create new object LasParam
+// STRT.     m       10.0     : start
+// field[0] field[1] field[2] field[3]
+func NewHeaderParam(s string, i int) *HeaderParam {
+	par := new(HeaderParam)
+	par.lineNo = i
 	paramFields := ParseParamStr(s)
 	par.Name = paramFields[0]
 	par.Unit = paramFields[1]
@@ -120,36 +245,55 @@ func NewLasParam(s string) *LasParam {
 	return par
 }
 
-//NULL .   -9999.00        : Null value
-//WELL .   1 - Вообщевская :
-// по умолчанию строка параметра разбирается на 4 составляющие: "имя параметра, ед измерения, значение, коментарий"
-// между точкой и двоеточием ожидается единица измерения и значение параметра
-// для параметра WELL пробел после точки также разбивает строку на две: ед измерения и значение
-// но ТОЛЬКО для этого параметра единица измерения не существует и делать этого не следует
-// таким образом собираем обратно в одно значение то, что ВОЗМОЖНО разбилось
-func wellNameFromParam(p *LasParam) string {
-	if len(p.Unit) == 0 {
-		return p.Val
-	}
-	if len(p.Val) == 0 {
-		return p.Unit //TODO не тестируется
-	}
-	return p.Unit + " " + p.Val
+// NewCurveHeaderParam - create new object LasParam
+// STRT.     m       10.0     : start
+// field[0] field[1] field[2] field[3]
+func NewCurveHeaderParam(s string, i int) *HeaderParam {
+	par := new(HeaderParam)
+	par.lineNo = i
+	paramFields := ParseCurveStr(s)
+	par.Name = paramFields[0]
+	par.Unit = paramFields[1]
+	par.Desc = paramFields[2]
+	return par
 }
 
 //LasCurve - class to store one log in Las
 type LasCurve struct {
-	LasParam
+	HeaderParam
 	Index int
 	D     []float64
 	V     []float64
+}
+
+// NewLasCurve - create new object LasCurve
+// s - string from las header
+// las - pointer to container
+func NewLasCurve(s string, las *Las) LasCurve {
+	lc := LasCurve{}
+	curveFields := ParseCurveStr(s)
+	lc.IName = curveFields[0]
+	lc.Name = las.Logs.UniqueName(lc.IName)
+	lc.Unit = curveFields[1]
+	lc.Desc = curveFields[2]
+	lc.Index = len(las.Logs)                // index of new curve == number of curve already in container
+	lc.Mnemonic = las.GetMnemonic(lc.IName) // мнемонику определяем по входному имени кривой
+	// вместимость слайсов для хранения данных равна количеству строк в исходном файле
+	lc.D = make([]float64, 0, las.NumPoints())
+	lc.V = make([]float64, 0, las.NumPoints())
+	return lc
+}
+
+// String - return LasCurve as string
+func (o LasCurve) String() string {
+	return fmt.Sprintf("[\n{\n\"IName\": \"%s\",\n\"Name\": \"%s\",\n\"Mnemonic\": \"%s\",\n\"Unit\": \"%s\",\"Val\": \"%s\",\n\"Desc\": \"%s\"\n}\n]", o.IName, o.Name, o.Mnemonic, o.Unit, o.Val, o.Desc)
 }
 
 // Cmp - compare current curve with another
 // не сравниваются хранящиеся числовые данные (сам каротаж), только описание кривой, также не сравнивается индекс
 // for deep comparison with all data points stored in the container use DeepCmp
 func (o *LasCurve) Cmp(curve LasCurve) (res bool) {
-	res = (o.LasParam == curve.LasParam)
+	res = (o.HeaderParam == curve.HeaderParam)
 	return
 }
 
@@ -165,33 +309,6 @@ func (o *LasCurve) SetLen(n int) {
 	t = make([]float64, n)
 	copy(t, o.V)
 	o.V = t
-}
-
-// NewLasCurve - create new object LasCurve
-// s - string from las header
-// las - pointer to container
-func NewLasCurve(s string, las *Las) LasCurve {
-	lc := LasCurve{}
-	curveFields := ParseCurveStr(s)
-	lc.IName = curveFields[0]
-	lc.Name = las.Logs.UniqueName(lc.IName)
-	lc.Unit = curveFields[1]
-	lc.Desc = curveFields[2]
-	// index of new curve == number of curve already in container
-	lc.Index = len(las.Logs)
-	// мнемонику определяем по входному имени кривой
-	lc.Mnemonic = las.GetMnemonic(lc.IName)
-	// размер слайсов для хранения данных готовим равными количеству строк в исходном файле
-	//	lc.D = make([]float64, 0, las.ePoints /*las.NumPoints()*/)
-	//	lc.V = make([]float64, 0, las.ePoints /*las.NumPoints()*/)
-	lc.D = make([]float64, 0, las.NumPoints())
-	lc.V = make([]float64, 0, las.NumPoints())
-	return lc
-}
-
-// String - return LasCurve as string
-func (o LasCurve) String() string {
-	return fmt.Sprintf("[\n{\n\"IName\": \"%s\",\n\"Name\": \"%s\",\n\"Mnemonic\": \"%s\",\n\"Unit\": \"%s\",\"Val\": \"%s\",\n\"Desc\": \"%s\"\n}\n]", o.IName, o.Name, o.Mnemonic, o.Unit, o.Val, o.Desc)
 }
 
 // LasCurves - container for store all curves of las file

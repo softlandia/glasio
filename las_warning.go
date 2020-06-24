@@ -15,12 +15,17 @@ const (
 	directOnWrite = 2
 )
 
-//TWarning - class to store warning
+// TWarning - class to store warning
 type TWarning struct {
 	direct  int    // 0 - undefine (warningUNDEF), 1 - on read (directOnRead), 2 - on write (directOnWrite)
 	section int    // 0 - undefine (warningUNDEF), lasSecVertion, lasSecWellInfo, lasSecCurInfo, lasSecData
 	line    int    // number of line in source file
 	desc    string // description of warning
+}
+
+// Empty - return true if warning is empty
+func (w TWarning) Empty() bool {
+	return len(w.desc) == 0
 }
 
 //String - return string with warning

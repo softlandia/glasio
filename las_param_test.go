@@ -38,7 +38,7 @@ func TestReadWellParam(t *testing.T) {
 	las := NewLas()
 	for i, tmp := range dReadWellParamStep {
 		las.ReadWellParam(tmp.s)
-		assert.Equal(t, las.Step, tmp.v, fmt.Sprintf("<ReadWellParam> on test %d return STEP: '%f' expect: '%f'\n", i, las.Step, tmp.v))
+		assert.Equal(t, tmp.v, las.Step, fmt.Sprintf("<ReadWellParam> on test %d return STEP: '%f' expect: '%f'\n", i, las.Step, tmp.v))
 	}
 }
 
@@ -126,14 +126,25 @@ var dWellInfoStr = []tWellInfoStr{
 }
 
 func TestNewLasParamFromString(t *testing.T) {
-	var lp *LasParam
+	var lp *HeaderParam
 	for _, tmp := range dWellInfoStr {
-		lp = NewLasParam(tmp.s)
+		lp = NewHeaderParam(tmp.s, 0)
 		assert.Equal(t, tmp.f1, lp.Name)
 		assert.Equal(t, tmp.f2, lp.Unit)
 		assert.Equal(t, tmp.f3, lp.Val)
 		assert.Equal(t, tmp.f4, lp.Desc)
 		lp = nil
+	}
+}
+
+func TestParseWelSecParam(t *testing.T) {
+	ws := NewWelSection()
+	for i, tmp := range dWellInfoStr {
+		par, _ := ws.parse(tmp.s, 0)
+		assert.Equal(t, tmp.f1, par.Name, fmt.Sprintf("t: %d, 1", i))
+		assert.Equal(t, tmp.f2, par.Unit, fmt.Sprintf("t: %d, 2", i))
+		assert.Equal(t, tmp.f3, par.Val, fmt.Sprintf("t: %d, 3", i))
+		assert.Equal(t, tmp.f4, par.Desc, fmt.Sprintf("t: %d, 4", i))
 	}
 }
 
@@ -161,6 +172,16 @@ var dParseCurveStr = []tParseCurveStr{
 	{" .mv      : ", "-EL-", "mv", ""},                            //13
 	{" .mv      :sp", "-EL-", "mv", "sp"},                         //14
 	{" .m v     :sp", "-EL-", "m v", "sp"},                        //15
+}
+
+func TestNewCurveHeaderParam(t *testing.T) {
+	cs := NewCurSection()
+	for _, tmp := range dParseCurveStr {
+		p, _ := cs.parse(tmp.s, 0)
+		assert.Equal(t, tmp.f0, p.Name)
+		assert.Equal(t, tmp.f1, p.Unit)
+		assert.Equal(t, tmp.f2, p.Desc)
+	}
 }
 
 func TestParseCurveStr(t *testing.T) {
