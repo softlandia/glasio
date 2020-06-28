@@ -295,11 +295,12 @@ type tSecFill struct {
 	well,
 	null,
 	ver,
-	wrap string //версия las файла
+	wrap string
+	nCurvs int
 }
 
 var dSecFill = []tSecFill{
-	{fp.Join("data/expand_points_01.las"), 7, "12-Сплошная", "-9999.00", "1.20", "NO"},
+	{fp.Join("data/expand_points_01.las"), 7, "12-Сплошная", "-9999.00", "1.20", "NO", 4},
 }
 
 func TestSection(t *testing.T) {
@@ -313,5 +314,6 @@ func TestSection(t *testing.T) {
 		assert.Equal(t, tmp.wrap, las.VerSec.params["WRAP"].Val)
 		assert.Equal(t, tmp.null, las.WelSec.params["NULL"].Val)
 		assert.Equal(t, tmp.well, las.WelSec.params["WELL"].Val)
+		assert.Equal(t, tmp.nCurvs, len(las.CurSec.params))
 	}
 }

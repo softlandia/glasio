@@ -34,6 +34,14 @@ type HeaderSection struct {
 	parse  ParseHeaderParam // function for parse one line
 }
 
+// uniqueName - return unique name
+func (hs HeaderSection) uniqueName(name string) string {
+	if _, ok := hs.params[name]; ok {
+		return name + strconv.Itoa(len(hs.params))
+	}
+	return name
+}
+
 // ParseHeaderParam - function to parse one line of header
 // return new  of added parameter and warning
 // on success TWarning.Empty() == true
@@ -92,7 +100,7 @@ func NewWelSection() HeaderSection {
 }
 
 // welParse12 - parse string and create parameter of section ~W
-// this version for las version less then 2.0
+// this version for las version 1.2
 func welParse12(s string, i int) (HeaderParam, TWarning) {
 	p := NewHeaderParam(s, i)
 	if p.Name == "WELL" {

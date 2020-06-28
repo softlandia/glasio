@@ -70,12 +70,72 @@ var (
 	MaxWarningCount int = 20
 )
 
+//method for get values from header containers ////////////////
+
+func (las *Las) parFloat(name string, defValue float64) float64 {
+	v := defValue
+	if p, ok := las.VerSec.params[name]; ok {
+		v, _ = strconv.ParseFloat(p.Val, 64)
+	}
+	return v
+}
+
+func (las *Las) parStr(name, defValue string) string {
+	v := defValue
+	if p, ok := las.VerSec.params[name]; ok {
+		v = p.Val
+	}
+	return v
+}
+
+// NULL - return null value of las file as float64
+// if parameter NULL in las file not exist, then return StdNull (by default -999.25)
+func (las *Las) NULL() float64 {
+	return las.parFloat("NULL", StdNull)
+}
+
+// STOP - return depth stop value of las file as float64
+// if parameter STOP in las file not exist, then return StdNull (by default -999.25)
+func (las *Las) STOP() float64 {
+	return las.parFloat("STOP", StdNull)
+}
+
+// STRT - return depth start value of las file as float64
+// if parameter NULL in las file not exist, then return StdNull (by default -999.25)
+func (las *Las) STRT() float64 {
+	return las.parFloat("STRT", StdNull)
+}
+
+// STEP - return depth step value of las file as float64
+// if parameter not exist, then return StdNull (by default -999.25)
+func (las *Las) STEP() float64 {
+	return las.parFloat("STEP", StdNull)
+}
+
+// VERS - return version of las file as float64
+// if parameter VERS in las file not exist, then return 2.0
+func (las *Las) VERS() float64 {
+	return las.parFloat("VERS", 2.0)
+}
+
+// WRAP - return wrap parameter of las file
+// if parameter not exist, then return "NO"
+func (las *Las) WRAP() string {
+	return las.parStr("WRAP", "NO")
+}
+
+// WELL - return well name
+// if parameter WELL in las file not exist, then return "--"
+func (las *Las) WELL() string {
+	return las.parStr("WELL", "--")
+}
+
 //NewLas - make new object Las class
 //autodetect code page at load file
 //code page to save by default is cpd.CP1251
 func NewLas(outputCP ...cpd.IDCodePage) *Las {
 	las := &Las{} //new(Las)
-	las.Ver = 2.0
+	las.Ver = 2.0 //<VER>
 	las.Wrap = "NO"
 	las.nRows = ExpPoints
 	las.rows = make([]string, 0, las.nRows)
@@ -104,97 +164,9 @@ func NewLas(outputCP ...cpd.IDCodePage) *Las {
 	return las
 }
 
-// selectSection - analize first char after ~
-// ~V - section vertion
-// ~W - well info section
-// ~C - curve info section
-// ~A - data section
-func (las *Las) selectSection(r rune) int {
-	switch r {
-	case 0x76, 0x56: //86, 118: //V, v
-		return lasSecVersion //version section
-	case 0x77, 0x57: //W, w
-		return lasSecWellInfo //well info section
-	case 0x43, 0x63: //C, c
-		return lasSecCurInfo //curve section
-	case 0x41, 0x61: //A, a
-		return lasSecData //data section
-	default:
-		return lasSecIgnore
-	}
-}
-
 // IsWraped - return true if WRAP == YES
 func (las *Las) IsWraped() bool {
 	return strings.Contains(strings.ToUpper(las.Wrap), "Y")
-}
-
-// SaveWarning - save to file all warning
-func (las *Las) SaveWarning(fileName string) error {
-	if las.Warnings.Count() == 0 {
-		return nil
-	}
-	oFile, err := os.Create(fileName)
-	if err != nil {
-		return err
-	}
-	las.SaveWarningToFile(oFile)
-	oFile.Close()
-	return nil
-}
-
-// SaveWarningToWriter - store all warning to writer, return count lines writed to
-func (las *Las) SaveWarningToWriter(writer *bufio.Writer) int {
-	n := las.Warnings.Count()
-	if n == 0 {
-		return 0
-	}
-	for _, w := range las.Warnings {
-		writer.WriteString(w.String())
-		writer.WriteString("\n")
-	}
-	return n
-}
-
-// SaveWarningToFile - store all warning to file, file not close. return count warning writed
-func (las *Las) SaveWarningToFile(oFile *os.File) int {
-	if oFile == nil {
-		return 0
-	}
-	if las.Warnings.Count() == 0 {
-		return 0
-	}
-	oFile.WriteString("**file: " + las.FileName + "**\n")
-	n := las.Warnings.SaveWarningToFile(oFile)
-	oFile.WriteString("\n")
-	return n
-}
-
-func (las *Las) addWarning(w TWarning) {
-	if las.Warnings.Count() < las.maxWarningCount {
-		las.Warnings = append(las.Warnings, w)
-		if las.Warnings.Count() == las.maxWarningCount {
-			las.Warnings = append(las.Warnings, TWarning{0, 0, -1, "*maximum count* of warning reached, change parameter 'maxWarningCount' in 'glas.ini'"})
-		}
-	}
-}
-
-// GetMnemonic - return Mnemonic from dictionary by Log Name,
-// if Mnemonic not found return ""
-// if Dictionary is nil, then return ""
-func (las *Las) GetMnemonic(logName string) string {
-	if (las.LogDic == nil) || (las.VocDic == nil) {
-		return "" //"-"
-	}
-	_, ok := (*las.LogDic)[logName]
-	if ok { //GOOD - название каротажа равно мнемонике
-		return logName
-	}
-	v, ok := (*las.VocDic)[logName]
-	if ok { //POOR - название загружаемого каротажа найдено в словаре подстановок, мнемоника найдена
-		return v
-	}
-	return ""
 }
 
 // GetRows - get internal field 'rows'
@@ -292,12 +264,33 @@ func (las *Las) LoadHeader() (int, error) {
 		//not comment, not empty and not new section => parameter, read it
 		err = las.ReadParameter(s, secNum)
 		p, _ := sec.parse(s, las.currentLine)
+		p.Name = sec.uniqueName(p.Name)
 		sec.params[p.Name] = p
 		if err != nil {
 			las.addWarning(TWarning{directOnRead, secNum, i, fmt.Sprintf("param: '%s' error: %v", s, err)})
 		}
 	}
 	return las.currentLine, nil
+}
+
+// selectSection - analize first char after ~
+// ~V - section vertion
+// ~W - well info section
+// ~C - curve info section
+// ~A - data section
+func (las *Las) selectSection(r rune) int {
+	switch r {
+	case 0x76, 0x56: //86, 118: //V, v
+		return lasSecVersion //version section
+	case 0x77, 0x57: //W, w
+		return lasSecWellInfo //well info section
+	case 0x43, 0x63: //C, c
+		return lasSecCurInfo //curve section
+	case 0x41, 0x61: //A, a
+		return lasSecData //data section
+	default:
+		return lasSecIgnore
+	}
 }
 
 func (las *Las) section(r rune) HeaderSection {
@@ -669,4 +662,72 @@ func (las *Las) SetNull(aNull float64) {
 		}
 	}
 	las.Null = aNull
+}
+
+// SaveWarning - save to file all warning
+func (las *Las) SaveWarning(fileName string) error {
+	if las.Warnings.Count() == 0 {
+		return nil
+	}
+	oFile, err := os.Create(fileName)
+	if err != nil {
+		return err
+	}
+	las.SaveWarningToFile(oFile)
+	oFile.Close()
+	return nil
+}
+
+// SaveWarningToWriter - store all warning to writer, return count lines writed to
+func (las *Las) SaveWarningToWriter(writer *bufio.Writer) int {
+	n := las.Warnings.Count()
+	if n == 0 {
+		return 0
+	}
+	for _, w := range las.Warnings {
+		writer.WriteString(w.String())
+		writer.WriteString("\n")
+	}
+	return n
+}
+
+// SaveWarningToFile - store all warning to file, file not close. return count warning writed
+func (las *Las) SaveWarningToFile(oFile *os.File) int {
+	if oFile == nil {
+		return 0
+	}
+	if las.Warnings.Count() == 0 {
+		return 0
+	}
+	oFile.WriteString("**file: " + las.FileName + "**\n")
+	n := las.Warnings.SaveWarningToFile(oFile)
+	oFile.WriteString("\n")
+	return n
+}
+
+func (las *Las) addWarning(w TWarning) {
+	if las.Warnings.Count() < las.maxWarningCount {
+		las.Warnings = append(las.Warnings, w)
+		if las.Warnings.Count() == las.maxWarningCount {
+			las.Warnings = append(las.Warnings, TWarning{0, 0, -1, "*maximum count* of warning reached, change parameter 'maxWarningCount' in 'glas.ini'"})
+		}
+	}
+}
+
+// GetMnemonic - return Mnemonic from dictionary by Log Name,
+// if Mnemonic not found return ""
+// if Dictionary is nil, then return ""
+func (las *Las) GetMnemonic(logName string) string {
+	if (las.LogDic == nil) || (las.VocDic == nil) {
+		return "" //"-"
+	}
+	_, ok := (*las.LogDic)[logName]
+	if ok { //GOOD - название каротажа равно мнемонике
+		return logName
+	}
+	v, ok := (*las.VocDic)[logName]
+	if ok { //POOR - название загружаемого каротажа найдено в словаре подстановок, мнемоника найдена
+		return v
+	}
+	return ""
 }
