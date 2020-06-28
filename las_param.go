@@ -30,6 +30,7 @@ type HeaderParam struct {
 
 // HeaderSection - contain parameters of Well section
 type HeaderSection struct {
+	name   rune
 	params map[string]HeaderParam
 	parse  ParseHeaderParam // function for parse one line
 }
@@ -43,13 +44,16 @@ func (hs HeaderSection) uniqueName(name string) string {
 }
 
 // ParseHeaderParam - function to parse one line of header
-// return new  of added parameter and warning
+// return new of added parameter and warning
 // on success TWarning.Empty() == true
+// s - string readed from source file
+// i - number of line in source file
 type ParseHeaderParam func(s string, i int) (HeaderParam, TWarning)
 
 // NewVerSection - create section ~V
 func NewVerSection() HeaderSection {
 	sec := HeaderSection{}
+	sec.name = 'V'
 	sec.params = make(map[string]HeaderParam)
 	sec.parse = defParse
 	return sec
@@ -64,6 +68,7 @@ func defParse(s string, i int) (HeaderParam, TWarning) {
 // NewOthSection - create section ~W
 func NewOthSection() HeaderSection {
 	sec := HeaderSection{}
+	sec.name = 'O'
 	sec.params = make(map[string]HeaderParam)
 	sec.parse = defParse
 	return sec
@@ -72,6 +77,7 @@ func NewOthSection() HeaderSection {
 // NewParSection - create section ~W
 func NewParSection() HeaderSection {
 	sec := HeaderSection{}
+	sec.name = 'P'
 	sec.params = make(map[string]HeaderParam)
 	sec.parse = defParse
 	return sec
@@ -80,6 +86,7 @@ func NewParSection() HeaderSection {
 // NewCurSection - create section ~C
 func NewCurSection() HeaderSection {
 	sec := HeaderSection{}
+	sec.name = 'C'
 	sec.params = make(map[string]HeaderParam)
 	sec.parse = curParse // parser for section ~C
 	return sec
@@ -94,6 +101,7 @@ func curParse(s string, i int) (HeaderParam, TWarning) {
 // NewWelSection - create section ~W
 func NewWelSection() HeaderSection {
 	sec := HeaderSection{}
+	sec.name = 'W'
 	sec.params = make(map[string]HeaderParam)
 	sec.parse = welParse20 // by default using 2.0 version parser
 	return sec
@@ -140,22 +148,30 @@ func (p *HeaderParam) wellName20() {
 	p.Unit = ""
 }
 
-func wellNameFromParam(p *HeaderParam) string {
-	if len(p.Unit) == 0 {
-		return p.Val
-	}
-	if len(p.Val) == 0 {
-		return p.Unit //TODO не тестируется
-	}
-	return p.Unit + " " + p.Val
-}
-
 //PrepareParamStr - prepare string to parse, replace many space to one, replace tab to space, replace combination of separator to one
 func PrepareParamStr(s string) string {
 	s = strings.ReplaceAll(s, "\t", " ")
 	s = xlib.ReplaceAllSpace(s)
 	s = xlib.ReplaceSeparators(s)
 	return strings.TrimSpace(s)
+}
+
+// NewHeaderParam - create new object LasParam
+// STRT.     m       10.0     : start
+// field[0] field[1] field[2] field[3]
+func NewHeaderParam(s string, i int) *HeaderParam {
+	par := new(HeaderParam)
+	par.lineNo = i
+	paramFields := ParseParamStr(s)
+	par.Name = paramFields[0]
+	par.Unit = paramFields[1]
+	par.Val = paramFields[2]
+	if (len(par.Val) == 0) && (len(par.Unit) > 0) {
+		par.Val = par.Unit
+		par.Unit = ""
+	}
+	par.Desc = paramFields[3]
+	return par
 }
 
 // ParseParamStr - parse string from las file
@@ -198,6 +214,19 @@ func ParseParamStr(s string) (f [4]string) {
 	return
 }
 
+// NewCurveHeaderParam - create new object LasParam
+// STRT.     m       10.0     : start
+// field[0] field[1] field[2] field[3]
+func NewCurveHeaderParam(s string, i int) *HeaderParam {
+	par := new(HeaderParam)
+	par.lineNo = i
+	paramFields := ParseCurveStr(s)
+	par.Name = paramFields[0]
+	par.Unit = paramFields[1]
+	par.Desc = paramFields[2]
+	return par
+}
+
 const defCurveName = "-EL-" // curve name for null input
 
 // ParseCurveStr - parse input string to 3 separated string
@@ -233,37 +262,6 @@ func ParseCurveStr(s string) (f [3]string) {
 
 	f[1] = strings.TrimSpace(s[iDot+1:])
 	return
-}
-
-// NewHeaderParam - create new object LasParam
-// STRT.     m       10.0     : start
-// field[0] field[1] field[2] field[3]
-func NewHeaderParam(s string, i int) *HeaderParam {
-	par := new(HeaderParam)
-	par.lineNo = i
-	paramFields := ParseParamStr(s)
-	par.Name = paramFields[0]
-	par.Unit = paramFields[1]
-	par.Val = paramFields[2]
-	if (len(par.Val) == 0) && (len(par.Unit) > 0) {
-		par.Val = par.Unit
-		par.Unit = ""
-	}
-	par.Desc = paramFields[3]
-	return par
-}
-
-// NewCurveHeaderParam - create new object LasParam
-// STRT.     m       10.0     : start
-// field[0] field[1] field[2] field[3]
-func NewCurveHeaderParam(s string, i int) *HeaderParam {
-	par := new(HeaderParam)
-	par.lineNo = i
-	paramFields := ParseCurveStr(s)
-	par.Name = paramFields[0]
-	par.Unit = paramFields[1]
-	par.Desc = paramFields[2]
-	return par
 }
 
 //LasCurve - class to store one log in Las
@@ -357,7 +355,7 @@ func (curves LasCurves) UniqueName(curveName string) string {
 //   количество кривых в контейнере
 //   два хеша от строк с именами всех кривых
 func (curves LasCurves) Cmp(otheCurves LasCurves) (res bool) {
-	res = (len(curves) == len(curves))
+	res = (len(curves) == len(otheCurves))
 	if res {
 		curvesName := make([]string, 0, len(curves))
 		for _, k := range curves {

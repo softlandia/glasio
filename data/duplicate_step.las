@@ -8,7 +8,7 @@
  STOP.M        1660.000000:
  STEP.M            -0.1250:
  STEP.M            -0.1200:
- NULL.           -999.2500:
+ NULL.           -999.2111:
  COMP.             COMPANY:   # ANY OIL COMPANY LTD.
  WELL.                WELL:   ANY ET AL OIL WELL #12
  FLD .               FIELD:   EDAM

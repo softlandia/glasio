@@ -70,16 +70,6 @@ func (crs CheckResults) wellWrong() bool {
 	return ok
 }
 
-// isFatal - return true if CheckResults contains at least one check result with fatal error
-func (crs CheckResults) isFatal() bool {
-	for _, c := range crs {
-		if c.err != nil {
-			return true
-		}
-	}
-	return false
-}
-
 // fatal - return first not nil error if CheckResults contains at least one check result with fatal error
 func (crs CheckResults) fatal() error {
 	for _, c := range crs {
@@ -99,7 +89,7 @@ type Checker map[string]Check
 // если проверка прошла безошибочно, то её в результатах не будет
 // полученный map содержит только ошибки
 func (c Checker) check(las *Las) CheckResults {
-	res := make(CheckResults, 0)
+	res := make(CheckResults)
 	// key - имя проверки
 	// chk - сам проверщик
 	for key, chk := range c {
@@ -110,15 +100,6 @@ func (c Checker) check(las *Las) CheckResults {
 	}
 	return res
 }
-
-/*
-// NewDeptChecker - creation of a new checker to check the depth of monotony
-func NewDeptChecker() Checker {
-	return Checker{
-		"DPTM": Check{"DPTM", "~A", "Dept step monotony", deptMonotony},
-	}
-}
-*/
 
 // NewStdChecker - создание нового ПРОВЕРЩИКА las файла.
 // WRAP = ON
@@ -164,17 +145,17 @@ func curvesIsEmpty(chk Check, las *Las) CheckRes {
 }
 
 func stepCheck(chk Check, las *Las) CheckRes {
-	return CheckRes{chk.name, TWarning{directOnRead, lasSecWellInfo, las.currentLine, fmt.Sprint("__WRN__ STEP parameter equal 0")}, nil, las.Step != 0.0}
+	return CheckRes{chk.name, TWarning{directOnRead, lasSecWellInfo, las.currentLine, fmt.Sprint("__WRN__ STEP parameter equal 0")}, nil, las.STEP() != 0.0}
 }
 
 func nullCheck(chk Check, las *Las) CheckRes {
-	return CheckRes{chk.name, TWarning{directOnRead, lasSecWellInfo, las.currentLine, fmt.Sprint("__WRN__ NULL parameter equal 0")}, nil, las.Null != 0.0}
+	return CheckRes{chk.name, TWarning{directOnRead, lasSecWellInfo, las.currentLine, fmt.Sprint("__WRN__ NULL parameter equal 0")}, nil, las.NULL() != 0.0}
 }
 
 func strtStop(chk Check, las *Las) CheckRes {
-	return CheckRes{chk.name, TWarning{directOnRead, lasSecWellInfo, las.currentLine, fmt.Sprintf("__WRN__ STRT: %4.3f == STOP: %4.3f", las.Strt, las.Stop)}, nil, las.Strt != las.Stop}
+	return CheckRes{chk.name, TWarning{directOnRead, lasSecWellInfo, las.currentLine, fmt.Sprintf("__WRN__ STRT: %4.3f == STOP: %4.3f", las.STRT(), las.STOP())}, nil, las.STRT() != las.STOP()}
 }
 
 func wellIsEmpty(chk Check, las *Las) CheckRes {
-	return CheckRes{chk.name, TWarning{directOnRead, lasSecWellInfo, las.currentLine, fmt.Sprintf("__WRN__ WELL: '%s' is empty", las.Well)}, nil, len(las.Well) != 0}
+	return CheckRes{chk.name, TWarning{directOnRead, lasSecWellInfo, las.currentLine, fmt.Sprintf("__WRN__ WELL: '%s' is empty", las.WELL())}, nil, len(las.WELL()) != 0}
 }

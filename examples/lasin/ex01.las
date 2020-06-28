@@ -1,15 +1,10 @@
-#
-# las для проверки автоматического увеличения слайсов при чтении
-# расширение должно быть выполнено два раза, две записи в "las.warning.md"
-#
-
 ~Version Information
-VERS.             1.20: cp_866 CWLS log ASCII Standard - VERSION 1.20
+VERS.             1.20: cp_866
 WRAP.              NO : One line per depth step
 ~Well Information
-STRT .M                             1.0 : Start depth 
-STOP .M                             1.0 : Stop depth 
-STEP .M                            0.10 : Step 
+STRT .M                             0.0 : Start depth 
+STOP .M                             0.0 : Stop depth 
+STEP .M                             0.0 : Step 
 NULL .		               -9999.00 : Null value 
 WELL .                             WELL : 12-Сплошная
 ~Curve Information

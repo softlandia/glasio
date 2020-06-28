@@ -25,30 +25,20 @@ import (
 // Las - class to store las file
 // input code page autodetect
 // at read file always code page converted to UTF
-// at save file code page converted to specifyed in Las.toCodePage
+// at save file code page converted to specifyed in Las.oCodepage
 //TODO add pointer to cfg
 //TODO при создании объекта las есть возможность указать кодировку записи, нужна возможность указать явно кодировку чтения
 type Las struct {
 	rows            []string           // buffer for read source file, only converted to UTF-8 no any othe change
-	nRows           int                // actually count of lines in source file
 	FileName        string             // file name from load
 	File            *os.File           // the file from which we are reading
 	Reader          io.Reader          // reader created from File, provides decode from codepage to UTF-8
 	scanner         *bufio.Scanner     // scanner
-	Ver             float64            // version 1.0, 1.2 or 2.0
-	Wrap            string             // YES || NO
-	Strt            float64            // start depth
-	Stop            float64            // stop depth
-	Step            float64            // depth step
-	Null            float64            // value interpreted as empty
-	Well            string             // well name
-	Rkb             float64            // altitude KB
 	Logs            LasCurves          // store all logs
 	LogDic          *map[string]string // external dictionary of standart log name - mnemonics
 	VocDic          *map[string]string // external vocabulary dictionary of log mnemonic
 	Warnings        TLasWarnings       // slice of warnings occure on read or write
 	oCodepage       cpd.IDCodePage     // codepage to save, default xlib.CpWindows1251. to special value, specify at make: NewLas(cp...)
-	iDuplicate      int                // index of duplicated mnemonic, increase by 1 if found duplicated
 	currentLine     int                // index of current line in readed file
 	maxWarningCount int                // default maximum warning count
 	stdNull         float64            // default null value
@@ -72,17 +62,17 @@ var (
 
 //method for get values from header containers ////////////////
 
-func (las *Las) parFloat(name string, defValue float64) float64 {
+func (las *Las) parFloat(sec HeaderSection, name string, defValue float64) float64 {
 	v := defValue
-	if p, ok := las.VerSec.params[name]; ok {
+	if p, ok := sec.params[name]; ok {
 		v, _ = strconv.ParseFloat(p.Val, 64)
 	}
 	return v
 }
 
-func (las *Las) parStr(name, defValue string) string {
+func (las *Las) parStr(sec HeaderSection, name, defValue string) string {
 	v := defValue
-	if p, ok := las.VerSec.params[name]; ok {
+	if p, ok := sec.params[name]; ok {
 		v = p.Val
 	}
 	return v
@@ -91,54 +81,51 @@ func (las *Las) parStr(name, defValue string) string {
 // NULL - return null value of las file as float64
 // if parameter NULL in las file not exist, then return StdNull (by default -999.25)
 func (las *Las) NULL() float64 {
-	return las.parFloat("NULL", StdNull)
+	return las.parFloat(las.WelSec, "NULL", StdNull)
 }
 
 // STOP - return depth stop value of las file as float64
 // if parameter STOP in las file not exist, then return StdNull (by default -999.25)
 func (las *Las) STOP() float64 {
-	return las.parFloat("STOP", StdNull)
+	return las.parFloat(las.WelSec, "STOP", StdNull)
 }
 
 // STRT - return depth start value of las file as float64
 // if parameter NULL in las file not exist, then return StdNull (by default -999.25)
 func (las *Las) STRT() float64 {
-	return las.parFloat("STRT", StdNull)
+	return las.parFloat(las.WelSec, "STRT", StdNull)
 }
 
 // STEP - return depth step value of las file as float64
 // if parameter not exist, then return StdNull (by default -999.25)
 func (las *Las) STEP() float64 {
-	return las.parFloat("STEP", StdNull)
+	return las.parFloat(las.WelSec, "STEP", StdNull)
 }
 
 // VERS - return version of las file as float64
 // if parameter VERS in las file not exist, then return 2.0
 func (las *Las) VERS() float64 {
-	return las.parFloat("VERS", 2.0)
+	return las.parFloat(las.VerSec, "VERS", 2.0)
 }
 
 // WRAP - return wrap parameter of las file
 // if parameter not exist, then return "NO"
 func (las *Las) WRAP() string {
-	return las.parStr("WRAP", "NO")
+	return las.parStr(las.VerSec, "WRAP", "NO")
 }
 
 // WELL - return well name
 // if parameter WELL in las file not exist, then return "--"
 func (las *Las) WELL() string {
-	return las.parStr("WELL", "--")
+	return las.parStr(las.WelSec, "WELL", "")
 }
 
 //NewLas - make new object Las class
 //autodetect code page at load file
 //code page to save by default is cpd.CP1251
 func NewLas(outputCP ...cpd.IDCodePage) *Las {
-	las := &Las{} //new(Las)
-	las.Ver = 2.0 //<VER>
-	las.Wrap = "NO"
-	las.nRows = ExpPoints
-	las.rows = make([]string, 0, las.nRows)
+	las := new(Las)
+	las.rows = make([]string, 0, ExpPoints /*las.nRows*/)
 	las.Logs = make([]LasCurve, 0)
 	las.VerSec = NewVerSection()
 	las.WelSec = NewWelSection()
@@ -147,9 +134,6 @@ func NewLas(outputCP ...cpd.IDCodePage) *Las {
 	las.OthSec = NewOthSection()
 	las.maxWarningCount = MaxWarningCount
 	las.stdNull = StdNull
-	las.Strt = StdNull
-	las.Stop = StdNull
-	las.Step = StdNull
 	if len(outputCP) > 0 {
 		las.oCodepage = outputCP[0]
 	} else {
@@ -159,14 +143,12 @@ func NewLas(outputCP ...cpd.IDCodePage) *Las {
 	las.LogDic = nil
 	//external log dictionary
 	las.VocDic = nil
-	//счётчик повторяющихся мнемоник, увеличивается каждый раз на 1, используется при переименовании мнемоники
-	las.iDuplicate = 0
 	return las
 }
 
 // IsWraped - return true if WRAP == YES
 func (las *Las) IsWraped() bool {
-	return strings.Contains(strings.ToUpper(las.Wrap), "Y")
+	return strings.Contains(strings.ToUpper(las.WRAP()), "Y")
 }
 
 // GetRows - get internal field 'rows'
@@ -182,25 +164,20 @@ func (las *Las) ReadRows() int {
 	return len(las.rows)
 }
 
-// Open -
-func (las *Las) Open(fileName string) (int, error) {
+// Load - load las from reader
+// you can make reader from string or othe containers and send as input parameters
+func (las *Las) Load(reader io.Reader) (int, error) {
 	var err error
-	las.File, err = os.Open(fileName)
-	if err != nil {
-		return 0, err //FATAL error - file not exist
+	if reader == nil {
+		return 0, errors.New("Load received nil reader")
 	}
-	defer las.File.Close()
-	las.FileName = fileName
-	//create Reader, this reader decode to UTF-8
-	las.Reader, err = cpd.NewReader(las.File)
+	//create Reader, this reader decode to UTF-8 from reader
+	las.Reader, err = cpd.NewReader(reader)
 	if err != nil {
 		return 0, err //FATAL error - file cannot be decoded to UTF-8
 	}
 	// prepare file to read
 	las.scanner = bufio.NewScanner(las.Reader)
-	// ePoints - содержит теперь количество строк в las файле
-	// соответственно слайсы для хранения кривых будут создаваться этой длины
-	//las.ePoints = las.ReadRows()
 	las.ReadRows()
 	m, _ := las.LoadHeader()
 	stdChecker := NewStdChecker()
@@ -215,7 +192,7 @@ func (las *Las) Open(fileName string) (int, error) {
 	}
 	if r.strtWrong() {
 		h := las.GetStrtFromData() // return las.Null if cannot find strt in the data section.
-		if h == las.Null {
+		if h == las.NULL() {
 			las.addWarning(TWarning{directOnRead, lasSecWellInfo, -1, fmt.Sprint("__WRN__ STRT parameter on data is wrong setting to 0")})
 			las.setStrt(0)
 		}
@@ -223,7 +200,7 @@ func (las *Las) Open(fileName string) (int, error) {
 	}
 	if r.stepWrong() {
 		h := las.GetStepFromData() // return las.Null if cannot calculate step from data
-		if h == las.Null {
+		if h == las.NULL() {
 			las.addWarning(TWarning{directOnRead, lasSecWellInfo, las.currentLine, fmt.Sprint("__WRN__ STEP parameter on data is wrong")})
 		}
 		las.setStep(h)
@@ -231,9 +208,20 @@ func (las *Las) Open(fileName string) (int, error) {
 	return las.LoadDataSec(m)
 }
 
+// Open - read las file
+func (las *Las) Open(fileName string) (int, error) {
+	var err error
+	las.File, err = os.Open(fileName)
+	if err != nil {
+		return 0, err //FATAL error - file not exist
+	}
+	defer las.File.Close()
+	las.FileName = fileName
+	return las.Load(las.File)
+}
+
 /*LoadHeader - read las file and load all section before ~A
    returns the row number with which the data section begins, until return nil in any case
-   secName: 0 - empty, 1 - Version, 2 - Well info, 3 - Curve info, 4 - A data
 1. читаем строку
 2. если коммент или пустая в игнор
 3. если начало секции, определяем какой
@@ -242,63 +230,55 @@ func (las *Las) Open(fileName string) (int, error) {
 */
 func (las *Las) LoadHeader() (int, error) {
 	var (
-		err error
 		sec HeaderSection
 	)
-	secNum := 0
+	//secNum := 0
 	las.currentLine = 0
-	for i, s := range las.rows {
+	for _, s := range las.rows {
 		s = strings.TrimSpace(s)
 		las.currentLine++
 		if isIgnoredLine(s) {
 			continue
 		}
 		if s[0] == '~' { //start new section
-			secNum = las.selectSection(rune(s[1]))
-			if secNum == lasSecData {
+			if las.isDataSection(rune(s[1])) {
 				break // reached the data section, stop load header
 			}
 			sec = las.section(rune(s[1]))
 			continue
 		}
 		//not comment, not empty and not new section => parameter, read it
-		err = las.ReadParameter(s, secNum)
-		p, _ := sec.parse(s, las.currentLine)
-		p.Name = sec.uniqueName(p.Name)
+		p, w := sec.parse(s, las.currentLine)
+		if !w.Empty() {
+			las.addWarning(w)
+		}
+		p.Name = sec.uniqueName(p.Name) //TODO if a duplicate of any parameter is detected, a warning should be generated
 		sec.params[p.Name] = p
-		if err != nil {
-			las.addWarning(TWarning{directOnRead, secNum, i, fmt.Sprintf("param: '%s' error: %v", s, err)})
+		if sec.name == 'C' { //for ~Curve section need additional actions
+			err := las.readCurveParam(s) //make new curve from "s" and store to container "Logs"
+			if err != nil {
+				las.addWarning(TWarning{directOnRead, 3, las.currentLine, fmt.Sprintf("param: '%s' error: %v", s, err)})
+			}
 		}
 	}
 	return las.currentLine, nil
 }
 
-// selectSection - analize first char after ~
+// isDataSection - return true if data section reached
+func (las *Las) isDataSection(r rune) bool {
+	return (r == 0x41) || (r == 0x61)
+}
+
 // ~V - section vertion
 // ~W - well info section
 // ~C - curve info section
 // ~A - data section
-func (las *Las) selectSection(r rune) int {
-	switch r {
-	case 0x76, 0x56: //86, 118: //V, v
-		return lasSecVersion //version section
-	case 0x77, 0x57: //W, w
-		return lasSecWellInfo //well info section
-	case 0x43, 0x63: //C, c
-		return lasSecCurInfo //curve section
-	case 0x41, 0x61: //A, a
-		return lasSecData //data section
-	default:
-		return lasSecIgnore
-	}
-}
-
 func (las *Las) section(r rune) HeaderSection {
 	switch r {
 	case 0x56, 0x76: //V, v
 		return las.VerSec //version section
 	case 0x57, 0x77: //W, w
-		if las.Ver < 2.0 {
+		if las.VERS() < 2.0 {
 			las.WelSec.parse = welParse12 //change parser, by default using parser 2.0
 		}
 		return las.WelSec //well info section
@@ -318,62 +298,11 @@ func (las *Las) storeHeaderWarning(chkResults CheckResults) {
 	}
 }
 
-// ReadParameter - read one parameter
-func (las *Las) ReadParameter(s string, secNum int) error {
-	switch secNum {
-	case lasSecVersion:
-		return las.readVersionParam(s)
-	case lasSecWellInfo:
-		return las.ReadWellParam(s)
-	case lasSecCurInfo:
-		return las.readCurveParam(s)
-	}
-	return nil
-}
-
-func (las *Las) readVersionParam(s string) error {
-	var err error
-	p := NewHeaderParam(s, 0)
-	switch p.Name {
-	case "VERS":
-		las.Ver, err = strconv.ParseFloat(p.Val, 64)
-	case "WRAP":
-		las.Wrap = p.Val
-	}
-	return err
-}
-
-//ReadWellParam - read parameter from WELL section
-func (las *Las) ReadWellParam(s string) error {
-	var err error
-	p := NewHeaderParam(s, 0)
-	switch p.Name {
-	case "STRT":
-		las.Strt, err = strconv.ParseFloat(p.Val, 64)
-	case "STOP":
-		las.Stop, err = strconv.ParseFloat(p.Val, 64)
-	case "STEP":
-		las.Step, err = strconv.ParseFloat(p.Val, 64)
-	case "NULL":
-		las.Null, err = strconv.ParseFloat(p.Val, 64)
-	case "WELL":
-		if las.Ver < 2.0 {
-			las.Well = p.Desc
-		} else {
-			las.Well = wellNameFromParam(p)
-		}
-	}
-	if err != nil {
-		las.addWarning(TWarning{directOnRead, lasSecWellInfo, -1, fmt.Sprintf("detected param: %v, unit:%v, value: %v\n", p.Name, p.Unit, p.Val)})
-	}
-	return err
-}
-
 //Разбор одной строки с мнемоникой каротажа
 //Разбираем а потом сохраняем в slice
 //Каждый каротаж характеризуется тремя именами
+//Name     - имя каротажа, повторятся не может, если есть повторение, то Name строится добавлением к IName индекса
 //IName    - имя каротажа в исходном файле, может повторятся
-//Name     - ключ в map хранилище, повторятся не может. если в исходном есть повторение, то Name строится добавлением к IName индекса
 //Mnemonic - мнемоника, берётся из словаря, если в словаре не найдено, то ""
 func (las *Las) readCurveParam(s string) error {
 	l := NewLasCurve(s, las)
@@ -398,9 +327,9 @@ func (las *Las) LoadDataSec(m int) (int, error) {
 		err  error
 		dept float64
 	)
-	n := len(las.Logs)                                     // количество каротажей, столько колонок данных ожидаем
-	dataRows := las.rows[m:]                               // reslice to lines with data only
-	nullAsStr := strconv.FormatFloat(las.Null, 'f', 5, 64) // Null as string
+	n := len(las.Logs)                                       // количество каротажей, столько колонок данных ожидаем
+	dataRows := las.rows[m:]                                 // reslice to lines with data only
+	nullAsStr := strconv.FormatFloat(las.NULL(), 'f', 5, 64) // Null as string
 	las.currentLine = m - 1
 	for _, line := range dataRows {
 		las.currentLine++
@@ -441,7 +370,7 @@ func (las *Las) LoadDataSec(m int) (int, error) {
 			v, err = strconv.ParseFloat(s, 64)
 			if err != nil {
 				las.addWarning(TWarning{directOnRead, lasSecData, las.currentLine, fmt.Sprintf("error convert string: '%s' to number, set to NULL", s)})
-				v = las.Null
+				v = las.NULL()
 			}
 			las.Logs[j].D = append(las.Logs[j].D, dept)
 			las.Logs[j].V = append(las.Logs[j].V, v)
@@ -510,11 +439,11 @@ func (las *Las) SaveToBuf(useMnemonic bool) ([]byte, error) {
 	fmt.Fprintf(&b, _LasVersion, 2.0) //file is always saved in 2.0 format
 	fmt.Fprint(&b, _LasWrap)
 	fmt.Fprint(&b, _LasWellInfoSec)
-	fmt.Fprintf(&b, _LasStrt, las.Strt)
-	fmt.Fprintf(&b, _LasStop, las.Stop)
-	fmt.Fprintf(&b, _LasStep, las.Step)
-	fmt.Fprintf(&b, _LasNull, las.Null)
-	fmt.Fprintf(&b, _LasWell, las.Well)
+	fmt.Fprintf(&b, _LasStrt, las.STRT())
+	fmt.Fprintf(&b, _LasStop, las.STOP())
+	fmt.Fprintf(&b, _LasStep, las.STEP())
+	fmt.Fprintf(&b, _LasNull, las.NULL())
+	fmt.Fprintf(&b, _LasWell, las.WELL())
 	fmt.Fprint(&b, _LasCurvSec)
 	fmt.Fprint(&b, _LasCurvDept)
 
@@ -554,13 +483,13 @@ func (las *Las) IsEmpty() bool {
 func (las *Las) GetStrtFromData() float64 {
 	iFile, err := os.Open(las.FileName)
 	if err != nil {
-		return las.Null //не обрабатывается в тесте
+		return las.NULL() //не обрабатывается в тесте
 	}
 	defer iFile.Close()
 
 	_, iScanner, err := xlib.SeekFileStop(las.FileName, "~A")
 	if (err != nil) || (iScanner == nil) {
-		return las.Null //не обрабатывается в тесте
+		return las.NULL() //не обрабатывается в тесте
 	}
 
 	s := ""
@@ -576,12 +505,12 @@ func (las *Las) GetStrtFromData() float64 {
 		}
 		dept1, err = strconv.ParseFloat(s[:k], 64)
 		if err != nil {
-			return las.Null //не обрабатывается в тесте
+			return las.NULL() //не обрабатывается в тесте
 		}
 		return dept1
 	}
 	//если мы попали сюда, то всё грусно, в файле после ~A не нашлось двух строчек с данными... или пустые строчки или комменты
-	return las.Null
+	return las.NULL()
 }
 
 // GetStepFromData - return step from data section
@@ -591,13 +520,13 @@ func (las *Las) GetStrtFromData() float64 {
 func (las *Las) GetStepFromData() float64 {
 	iFile, err := os.Open(las.FileName)
 	if err != nil {
-		return las.Null //не обрабатывается в тесте
+		return las.NULL() //не обрабатывается в тесте
 	}
 	defer iFile.Close()
 
 	_, iScanner, err := xlib.SeekFileStop(las.FileName, "~A")
 	if (err != nil) || (iScanner == nil) {
-		return las.Null
+		return las.NULL()
 	}
 
 	s := ""
@@ -616,7 +545,7 @@ func (las *Las) GetStepFromData() float64 {
 		dept1, err = strconv.ParseFloat(s[:k], 64)
 		if err != nil {
 			// case if the data row in the first position (dept place) contains not a number
-			return las.Null
+			return las.NULL()
 		}
 		j++
 		if j == 2 {
@@ -626,42 +555,42 @@ func (las *Las) GetStepFromData() float64 {
 		dept2 = dept1
 	}
 	//bad case, data section not contain two rows with depth
-	return las.Null //не обрабатывается в тесте
+	return las.NULL() //не обрабатывается в тесте
 }
 
 func (las *Las) setStep(h float64) {
-	las.Step = h
+	las.WelSec.params["STEP"] = HeaderParam{strconv.FormatFloat(h, 'f', -1, 64), "STEP", "", "", "", "step of index", 8}
 }
 
 func (las *Las) setStrt(strt float64) {
-	las.Strt = strt
+	las.WelSec.params["STRT"] = HeaderParam{strconv.FormatFloat(strt, 'f', -1, 64), "STRT", "", "", "", "first index value", 6}
 }
 
 // IsStrtEmpty - return true if parameter Strt not exist in file
 func (las *Las) IsStrtEmpty() bool {
-	return las.Strt == StdNull
+	return las.STRT() == StdNull
 }
 
 // IsStopEmpty - return true if parameter Stop not exist in file
 func (las *Las) IsStopEmpty() bool {
-	return las.Stop == StdNull
+	return las.STOP() == StdNull
 }
 
 // IsStepEmpty - return true if parameter Step not exist in file
 func (las *Las) IsStepEmpty() bool {
-	return las.Step == StdNull
+	return las.STEP() == StdNull
 }
 
 // SetNull - change parameter NULL in WELL INFO section and in all logs
-func (las *Las) SetNull(aNull float64) {
+func (las *Las) SetNull(null float64) {
 	for _, l := range las.Logs { //loop by logs
 		for i := range l.V { //loop by dept step
-			if l.V[i] == las.Null {
-				l.V[i] = aNull
+			if l.V[i] == las.NULL() {
+				l.V[i] = null
 			}
 		}
 	}
-	las.Null = aNull
+	las.WelSec.params["NULL"] = HeaderParam{strconv.FormatFloat(null, 'f', -1, 64), "NULL", "", "", "", "null value", las.WelSec.params["NULL"].lineNo}
 }
 
 // SaveWarning - save to file all warning

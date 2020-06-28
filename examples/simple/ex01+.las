@@ -2,8 +2,8 @@
 VERS.                          2.0 : glas (c) softlandia@gmail.com
 WRAP.                          NO  : ONE LINE PER DEPTH STEP
 ~Well information
- STRT.M    1.000                                    :START DEPTH
- STOP.M    1.000                                    :STOP  DEPTH
+ STRT.M    0.000                                    :START DEPTH
+ STOP.M    0.000                                    :STOP  DEPTH
  STEP.M    0.100                                    :STEP
  NULL.  -9999.000                                   :NULL VALUE
  WELL.   12-Сплошная                                :WELL

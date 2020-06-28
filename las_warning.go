@@ -9,8 +9,6 @@ import (
 )
 
 const (
-	//defWarningCount = 10
-	//warningUNDEF  = 0
 	directOnRead  = 1
 	directOnWrite = 2
 )

@@ -7,7 +7,7 @@ import (
 	"github.com/softlandia/glasio"
 )
 
-// Sample 
+// Sample
 // read one file and print to stdout all warnings:
 // warning number, number of line in las file, message
 func main() {

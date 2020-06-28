@@ -1,17 +1,17 @@
 ~Version Information
-VERS.             1.20: CP866 CWLS log ASCII Standard - VERSION 1.20
+VERS.             1.20: cp_866
 WRAP.              NO : One line per depth step
 ~Well Information
-STRT .M                             1.0 : Start depth 
-STOP .M                             1.0 : Stop depth 
-STEP .M                            0.10 : Step 
+STRT .M                             0.0 : Start depth 
+STOP .M                             0.0 : Stop depth 
+STEP .M                             0.0 : Step 
 NULL .		               -9999.00 : Null value 
 WELL .                             WELL : 12-‘―«®θ­ ο
 ~Curve Information
 DEPT .M                                  : 1  DEPTH 
- ‘  .¤.¥¤.                              : 2
- ‘.γα«.¥¤.	                         : 3et
- ‘  .                                   : 4
+ ‘  .¤.¥¤.                              : 
+ ‘.γα«.¥¤.	                         : et
+ ‘  .                                   : 
 ~Parameter Information
 EKB  .M                             72.7 : Elevation,Kelly Bushing 
 ~ASCII Log Data

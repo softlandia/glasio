@@ -103,7 +103,7 @@ func TestGetStrtFromData(t *testing.T) {
 	for _, tmp := range dGetDataStrt {
 		las := NewLas()
 		las.Open(tmp.fn)
-		assert.Equal(t, tmp.st, las.Strt, fmt.Sprintf("<TestGetStepFromData> fail on file '%s' \n", tmp.fn))
+		assert.Equal(t, tmp.st, las.STRT(), fmt.Sprintf("<TestGetStrtFromData> fail on file '%s' \n", tmp.fn))
 	}
 }
 
@@ -123,24 +123,24 @@ func TestGetStepFromData(t *testing.T) {
 	for _, tmp := range dGetDataStep {
 		las := NewLas()
 		las.Open(tmp.fn)
-		assert.Equal(t, tmp.st, las.Step, fmt.Sprintf("<TestGetStepFromData> fail on file '%s' \n", tmp.fn))
+		assert.Equal(t, tmp.st, las.STEP(), fmt.Sprintf("<TestGetStepFromData> fail on file '%s' \n", tmp.fn))
 	}
 }
 
 func TestLasSetNull(t *testing.T) {
 	las := NewLas()
 	las.Open(fp.Join("data/expand_points_01.las"))
-	assert.Equal(t, -9999.00, las.Null)
+	assert.Equal(t, -9999.00, las.NULL())
 	las.SetNull(-999.25)
-	assert.Equal(t, -999.25, las.Null)
+	assert.Equal(t, -999.25, las.NULL())
 	las.Save("-tmp.las")
 
 	las = NewLas()
 	las.Open("-tmp.las")
-	assert.Equal(t, -999.25, las.Null)
+	assert.Equal(t, -999.25, las.NULL())
 	log := las.Logs[1]
-	assert.Equal(t, las.Null, log.V[2])
-	assert.Equal(t, las.Null, las.Logs[2].V[6])
+	assert.Equal(t, las.NULL(), log.V[2])
+	assert.Equal(t, las.NULL(), las.Logs[2].V[6])
 	err := os.Remove("-tmp.las")
 	assert.Nil(t, err, fmt.Sprintf("%v", err))
 }
@@ -179,11 +179,11 @@ func TestLasSave(t *testing.T) {
 		//os.Remove(tmp.fn)
 		assert.Nil(t, err)
 		assert.Equal(t, 5, n)
-		assert.Equal(t, tmp.newNull, las.Null)
-		assert.Equal(t, tmp.strt, las.Strt)
-		assert.Equal(t, tmp.stop, las.Stop)
-		assert.Equal(t, tmp.step, las.Step)
-		assert.Equal(t, tmp.well, las.Well)
+		assert.Equal(t, tmp.newNull, las.NULL())
+		assert.Equal(t, tmp.strt, las.STRT())
+		assert.Equal(t, tmp.stop, las.STOP())
+		assert.Equal(t, tmp.step, las.STEP())
+		assert.Equal(t, tmp.well, las.WELL())
 		assert.Equal(t, "DEPT", las.Logs[0].Name)
 		assert.Equal(t, 1.1, las.Logs[0].D[1])
 		assert.Equal(t, 1.0, las.Logs[0].V[0])
@@ -195,7 +195,7 @@ func TestLasSave(t *testing.T) {
 func TestSetNullOnEmptyLas(t *testing.T) {
 	las := NewLas()
 	las.SetNull(-1000)
-	assert.Equal(t, -1000.0, las.Null)
+	assert.Equal(t, -1000.0, las.NULL())
 }
 
 func TestLasIsEmpty(t *testing.T) {

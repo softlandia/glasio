@@ -54,6 +54,11 @@ lasin
 coverage 91%  
 folder "data" contain files for testing, no remove/change/add
 
+## technical info ##
+
+if las file contane duplicated of any parameter, then used first
+on curve section used all curves name, duplicated renamed
+
 ## warnings generated when reading a LAS file ##
 
 ### warning format ###

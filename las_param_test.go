@@ -37,8 +37,10 @@ var dReadWellParamStep = []tReadWellParamStep{
 func TestReadWellParam(t *testing.T) {
 	las := NewLas()
 	for i, tmp := range dReadWellParamStep {
-		las.ReadWellParam(tmp.s)
-		assert.Equal(t, tmp.v, las.Step, fmt.Sprintf("<ReadWellParam> on test %d return STEP: '%f' expect: '%f'\n", i, las.Step, tmp.v))
+		//las.ReadWellParam(tmp.s)
+		hp, _ := las.WelSec.parse(tmp.s, 0)
+		las.WelSec.params["STEP"] = hp
+		assert.Equal(t, tmp.v, las.STEP(), fmt.Sprintf("<ReadWellParam> on test %d return STEP: '%f' expect: '%f'\n", i, las.STEP(), tmp.v))
 	}
 }
 

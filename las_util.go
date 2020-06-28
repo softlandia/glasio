@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	fp "path/filepath"
+	"strconv"
 
 	"github.com/softlandia/cpd"
 )
@@ -21,10 +22,10 @@ func isIgnoredLine(s string) bool {
 // два las равны если равны их основные параметры: STRT, STOP, STEP, NULL, количество точек в данных,
 // а также количество кривых и совпадают имена кривых
 func cmpLas(correct, las *Las) (res bool) {
-	res = (correct.Strt == las.Strt)
-	res = res && (correct.Stop == las.Stop)
-	res = res && (correct.Step == las.Step)
-	res = res && (correct.Null == las.Null)
+	res = (correct.STRT() == las.STRT())
+	res = res && (correct.STOP() == las.STOP())
+	res = res && (correct.STEP() == las.STEP())
+	res = res && (correct.NULL() == las.NULL())
 	res = res && (correct.NumPoints() == las.NumPoints())
 	res = res && correct.Logs.Cmp(las.Logs)
 	return res
@@ -53,11 +54,13 @@ func makeSampleLas(
 	} else {
 		las = NewLas(cp)
 	}
-	las.Null = null
-	las.Strt = strt
-	las.Stop = stop
-	las.Step = step
-	las.Well = well
+	las.VerSec.params["VERS"] = HeaderParam{"2.0", "VERS", "", "", "", "glasio (c) softlandia@gmail.com", 2}
+	las.VerSec.params["WRAP"] = HeaderParam{"NO", "WRAP", "", "", "", "one line per depth step", 3}
+	las.WelSec.params["NULL"] = HeaderParam{strconv.FormatFloat(null, 'f', -1, 64), "NULL", "", "", "", "null value", 5}
+	las.WelSec.params["STRT"] = HeaderParam{strconv.FormatFloat(strt, 'f', -1, 64), "STRT", "", "", "", "first index value", 6}
+	las.WelSec.params["STOP"] = HeaderParam{strconv.FormatFloat(stop, 'f', -1, 64), "STOP", "", "", "", "last index value", 7}
+	las.WelSec.params["STEP"] = HeaderParam{strconv.FormatFloat(step, 'f', -1, 64), "STEP", "", "", "", "step of index", 8}
+	las.WelSec.params["WELL"] = HeaderParam{well, "WELL", "", "", "", "well", 9}
 
 	curve := NewLasCurve("DEPT.m :", las)
 	curve.D = append(curve.D, 1.0, 1.1, 1.2, 1.3, 1.4)
@@ -71,6 +74,8 @@ func makeSampleLas(
 }
 
 // LoadLasHeader - utility function, if need read only header without data
+// read header as is
+// not repaire any parameters: step, stop, etc...
 func LoadLasHeader(fileName string) (*Las, error) {
 	las := NewLas()
 	iFile, err := os.Open(fileName)
@@ -85,7 +90,6 @@ func LoadLasHeader(fileName string) (*Las, error) {
 	if err != nil {
 		return nil, err
 	}
-	//las.ePoints = las.ReadRows()
 	las.ReadRows()
 	las.LoadHeader()
 	return las, nil
