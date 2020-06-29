@@ -1,5 +1,5 @@
-line: 24,	"__WRN__ STRT: 0.000 == STOP: 0.000"
 line: 24,	"__WRN__ STEP parameter equal 0"
+line: 24,	"__WRN__ STRT: 0.000 == STOP: 0.000"
 line: 24,	"error convert string: '6.2.24' to number, set to NULL"
 line: 25,	"line contains 5 columns, expected: 6"
 line: 25,	"error convert string: '528.07202215.58' to number, set to NULL"

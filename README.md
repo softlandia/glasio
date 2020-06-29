@@ -56,6 +56,28 @@ folder "data" contain files for testing, no remove/change/add
 
 ## technical info ##
 
+### how type Las store data ###
+
+access to main parameters:  
+las.VERS()  
+las.WRAP()  
+las.STEP()  
+las.STRT()  
+las.STOP()  
+las.NULL()  
+las.WELL()
+
+number of points and curves:  
+las.NumPoints() - number of points
+len(las.Logs) - number of curves
+
+access to curves and data:  
+las.Logs[0].D[0] - first depth  
+las.Logs[1].V[100] - value of first curve on 101 depth step  
+las.Logs[2].Name - name of second curve  
+las.Logs[2].Unit - unit of second curve  
+las.Logs[2].Mnemonic - mnemonic of second curve, the value is determined if the dictionary was applied  
+
 if las file contane duplicated of any parameter, then used first
 on curve section used all curves name, duplicated renamed
 
