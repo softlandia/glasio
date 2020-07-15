@@ -65,7 +65,7 @@ func defParse(s string, i int) (HeaderParam, TWarning) {
 	return *p, TWarning{}
 }
 
-// NewOthSection - create section ~W
+// NewOthSection - create section ~O
 func NewOthSection() HeaderSection {
 	sec := HeaderSection{}
 	sec.name = 'O'
@@ -74,7 +74,7 @@ func NewOthSection() HeaderSection {
 	return sec
 }
 
-// NewParSection - create section ~W
+// NewParSection - create section ~P
 func NewParSection() HeaderSection {
 	sec := HeaderSection{}
 	sec.name = 'P'
@@ -282,7 +282,7 @@ func NewLasCurve(s string, las *Las) LasCurve {
 	lc.Name = las.Logs.UniqueName(lc.IName)
 	lc.Unit = curveFields[1]
 	lc.Desc = curveFields[2]
-	lc.Index = len(las.Logs)                // index of new curve == number of curve already in container
+	lc.Index = len(las.Logs)                // index of new curve == number of curves already in container
 	lc.Mnemonic = las.GetMnemonic(lc.IName) // мнемонику определяем по входному имени кривой
 	// вместимость слайсов для хранения данных равна количеству строк в исходном файле
 	lc.D = make([]float64, 0, las.NumPoints())
@@ -317,11 +317,11 @@ func (o *LasCurve) SetLen(n int) {
 	o.V = t
 }
 
-// LasCurves - container for store all curves of las file
+// LasCurves - container to store all curves of las file
 // .Cmp(curves *LasCurves) bool - compare two curves containers
 type LasCurves []LasCurve
 
-// Captions - return string represent all curves name with separators for las file
+// Captions - return string represents all curve names with separators for las file
 // use as comment string after section ~A
 func (curves LasCurves) Captions() string {
 	var sb strings.Builder

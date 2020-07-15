@@ -11,7 +11,7 @@ import (
 	"github.com/softlandia/cpd"
 )
 
-// isIgnoredLine - check string s to empty or LAS format comment
+// isIgnoredLine - check whether string s is empty or LAS format comment
 func isIgnoredLine(s string) bool {
 	if (len(s) == 0) || (s[0] == '#') {
 		return true

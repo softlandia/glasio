@@ -6,12 +6,12 @@
 >install: go install
 
 The library makes it easy to read or write data in LAS format.
-The main reason for the development was the need to read and bring in a uniform form a large number of LAS files obtained from various sources
+The main reason for the development was the need to read and standardize a large number of LAS files obtained from various sources
 
 Features:
 
 1. The encoding is determined automatically
-2. On reading performed validation of the key parameters and is integrity of the structure LAS file
+2. On reading perform validation of the key parameters and integrity of the structure LAS file
 3. Messages are generated for all inconsistencies:
     - zero value of important parameters
     - depth step change in data section
@@ -24,7 +24,7 @@ Features:
 6. It is possible to specify a dictionary of standard mnemonics; when reading a file, messages about curves that do not match the specified ones will be generated
 7. It is possible to specify a dictionary of automatic substitution of mnemonics, respectively, curves with the given names will be renamed
 
-__WRAP__ las file not support
+Wrapped (__WRAP__) las files are not supported
 
 ## dependences ##
 
@@ -52,7 +52,7 @@ lasin
 ## tests ##
 
 coverage 91%  
-folder "data" contain files for testing, no remove/change/add
+The "data" folder contains files for testing, no remove/change/add
 
 ## technical info ##
 
@@ -78,8 +78,8 @@ las.Logs[2].Name - name of second curve
 las.Logs[2].Unit - unit of second curve  
 las.Logs[2].Mnemonic - mnemonic of second curve, the value is determined if the dictionary was applied  
 
-if las file contane duplicated of any parameter, then used first
-on curve section used all curves name, duplicated renamed
+if las file contains duplication of any parameter, then use the first in curve
+section used all curves name. The subsequent duplicated parameter is renamed.
 
 ## warnings generated when reading a LAS file ##
 
@@ -90,4 +90,3 @@ extended:
 > x - section number  
 > y - line number of input file  
 
-short:  
