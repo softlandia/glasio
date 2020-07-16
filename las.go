@@ -24,7 +24,7 @@ import (
 
 // Las - class to store las file
 // input code page autodetect
-// at read file always code page converted to UTF
+// at read file the code page is converted to UTF
 // at save file code page converted to specifyed in Las.oCodepage
 //TODO add pointer to cfg
 //TODO при создании объекта las есть возможность указать кодировку записи, нужна возможность указать явно кодировку чтения
@@ -165,13 +165,13 @@ func (las *Las) ReadRows() int {
 }
 
 // Load - load las from reader
-// you can make reader from string or othe containers and send as input parameters
+// you can make reader from string or other containers and send as input parameters
 func (las *Las) Load(reader io.Reader) (int, error) {
 	var err error
 	if reader == nil {
 		return 0, errors.New("Load received nil reader")
 	}
-	//create Reader, this reader decode to UTF-8 from reader
+	//create Reader, this reader decodes to UTF-8 from reader
 	las.Reader, err = cpd.NewReader(reader)
 	if err != nil {
 		return 0, err //FATAL error - file cannot be decoded to UTF-8
@@ -362,7 +362,7 @@ func (las *Las) LoadDataSec(m int) (int, error) {
 		for j := 1; j < n; j++ { // цикл по каротажам
 			s := ""
 			if j >= len(fields) {
-				s = nullAsStr // columns count in current line less then curves count, fill as null value
+				s = nullAsStr // columns count in current line less than curves count, fill as null value
 				las.addWarning(TWarning{directOnRead, lasSecData, las.currentLine, fmt.Sprintf("for column %d data not present, value set to NULL", j+1)})
 			} else {
 				s = fields[j]
@@ -607,7 +607,7 @@ func (las *Las) SaveWarning(fileName string) error {
 	return nil
 }
 
-// SaveWarningToWriter - store all warning to writer, return count lines writed to
+// SaveWarningToWriter - store all warning to writer, return count lines written to
 func (las *Las) SaveWarningToWriter(writer *bufio.Writer) int {
 	n := las.Warnings.Count()
 	if n == 0 {
@@ -620,7 +620,7 @@ func (las *Las) SaveWarningToWriter(writer *bufio.Writer) int {
 	return n
 }
 
-// SaveWarningToFile - store all warning to file, file not close. return count warning writed
+// SaveWarningToFile - store all warning to file, file not close. return count warning written
 func (las *Las) SaveWarningToFile(oFile *os.File) int {
 	if oFile == nil {
 		return 0

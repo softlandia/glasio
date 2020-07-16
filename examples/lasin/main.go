@@ -8,7 +8,7 @@ import (
 )
 
 // Sample
-// read one file and print to stdout all warnings:
+// read one file and print all warnings to stdout:
 // warning number, number of line in las file, message
 func main() {
 	if len(os.Args) == 1 {
